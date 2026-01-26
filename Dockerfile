@@ -1,35 +1,32 @@
-# --- Giai đoạn 1: Build (Thợ xây) ---
-# Dùng Maven và Java 17 (khớp với pom.xml)
-FROM maven:3.9-eclipse-temurin-17 AS build
+# --- Giai đoạn 1: Build ---
+# 👇 Dùng Java 21 cho nó khớp với Spring Boot 3 hiện tại
+FROM maven:3.9-eclipse-temurin-21 AS build
 WORKDIR /app
 
-# Copy file cấu hình và tải thư viện trước (để tận dụng cache)
 COPY pom.xml .
+# Tải dependency trước để tận dụng cache của Docker (build lần sau nhanh hơn)
 RUN mvn dependency:go-offline -B
 
-# Copy toàn bộ code vào và build
 COPY src ./src
+# Build ra file .jar (skip test cho nhanh)
 RUN mvn clean package -DskipTests -B
 
-# --- Giai đoạn 2: Run (Chủ nhà) ---
-# Dùng bản Java nhẹ để chạy cho nhanh
-FROM eclipse-temurin:17-jre-alpine
+# --- Giai đoạn 2: Run ---
+# 👇 Cũng phải là Java 21 (Alpine cho nhẹ)
+FROM eclipse-temurin:21-jre-alpine
 WORKDIR /app
 
-# Tạo user non-root để chạy app (security best practice)
+# Tạo user để bảo mật (Best practice)
 RUN addgroup -S spring && adduser -S spring -G spring
 USER spring:spring
 
-# Lấy cái file .jar đã build ở trên bỏ vào đây
+# Copy file .jar từ giai đoạn build sang giai đoạn run
+# (Lấy file jar đầu tiên tìm thấy - thường là file app chính)
 COPY --from=build /app/target/*.jar app.jar
 
-# Mở cổng (Render sẽ dùng PORT env variable, mặc định 8080)
+# Cổng mặc định (Railway/Render sẽ tự override bằng biến môi trường PORT)
+ENV PORT=8080
 EXPOSE 8080
 
-# Health check (optional, để Render biết app đã sẵn sàng)
-# Sử dụng wget (cần cài đặt trong alpine) hoặc có thể bỏ qua nếu không cần
-# HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
-#   CMD wget --no-verbose --tries=1 --spider http://localhost:${PORT:-8080}/api/auth/status || exit 1
-
-# Lệnh chạy app (Render sẽ tự động set PORT env variable)
+# Chạy app
 ENTRYPOINT ["java", "-jar", "app.jar"]

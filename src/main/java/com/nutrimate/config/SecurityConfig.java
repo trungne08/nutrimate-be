@@ -6,6 +6,7 @@ import com.nutrimate.service.CustomOidcUserService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.web.SecurityFilterChain;
@@ -45,8 +46,7 @@ public class SecurityConfig {
             // Cấu hình authorization
             .authorizeHttpRequests(auth -> auth
                 // Cho phép OPTIONS requests (CORS preflight) - QUAN TRỌNG!
-                .requestMatchers("OPTIONS").permitAll()
-                // Cho phép truy cập công khai
+                .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                 .requestMatchers("/", "/login**", "/error", 
                                 "/api/auth/login", "/api/auth/status", 
                                 "/oauth2/**",

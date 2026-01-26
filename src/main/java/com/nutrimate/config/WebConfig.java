@@ -9,9 +9,11 @@ public class WebConfig implements WebMvcConfigurer {
 
     @Override
     public void addCorsMappings(CorsRegistry registry) {
+        // CORS được xử lý bởi Spring Security (CorsConfig)
+        // Config này chỉ là backup, nhưng Spring Security sẽ override
         registry.addMapping("/**")
-                // Cho phép tất cả origins
-                .allowedOriginPatterns("*")
+                // Cho phép localhost và các origins cụ thể
+                .allowedOriginPatterns("http://localhost:*", "http://127.0.0.1:*")
                 // Cho phép tất cả methods
                 .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH", "HEAD")
                 // Cho phép tất cả headers
