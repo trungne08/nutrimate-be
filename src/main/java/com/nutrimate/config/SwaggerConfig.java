@@ -18,30 +18,34 @@ import java.util.List;
 @Configuration
 public class SwaggerConfig {
     
-    @Value("${app.backend.url:http://localhost:8080}")
+    @Value("${app.backend.url:}")
     private String backendUrl;
     
     @Bean
     public OpenAPI customOpenAPI() {
         List<Server> servers = new ArrayList<>();
         
-        // Server local (luôn có)
+        // Server tự động detect từ request hiện tại (Render/Railway/localhost)
+        // SpringDoc sẽ tự động resolve relative URL thành absolute URL
+        servers.add(new Server()
+                .url("/")
+                .description("Current Server (Auto-detected)"));
+        
+        // Thêm localhost nếu đang chạy local (để có thể test local)
         servers.add(new Server()
                 .url("http://localhost:8080")
-                .description("Local Development Server"));
+                .description("Local Development (if running locally)"));
         
-        // Server từ biến môi trường (production)
-        // Tự động detect HTTPS nếu URL bắt đầu bằng https://
+        // Thêm server từ biến môi trường nếu có (backup)
         if (backendUrl != null && !backendUrl.isEmpty() && !backendUrl.equals("http://localhost:8080")) {
-            // Đảm bảo dùng HTTPS cho production
             String productionUrl = backendUrl;
+            // Đảm bảo dùng HTTPS cho production
             if (productionUrl.startsWith("http://") && !productionUrl.contains("localhost")) {
-                // Tự động chuyển sang HTTPS cho production
                 productionUrl = productionUrl.replace("http://", "https://");
             }
             servers.add(new Server()
                     .url(productionUrl)
-                    .description("Production Server"));
+                    .description("Production Server (from config)"));
         }
         
         return new OpenAPI()
