@@ -37,7 +37,7 @@ public class User {
     private String phoneNumber; // Lấy từ Cognito attribute 'phone_number'
     
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, columnDefinition = "ENUM('MEMBER', 'EXPERT', 'ADMIN')")
+    @Column(nullable = false, columnDefinition = "ENUM('MEMBER', 'EXPERT', 'ADMIN') NOT NULL DEFAULT 'MEMBER'")
     private UserRole role = UserRole.MEMBER;
     
     @Column(name = "avatar_url", length = 255)
