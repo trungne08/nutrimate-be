@@ -5,6 +5,7 @@ import com.nutrimate.entity.HealthProfile;
 import com.nutrimate.entity.User;
 import com.nutrimate.repository.HealthProfileRepository;
 import com.nutrimate.repository.UserRepository;
+import org.springframework.beans.factory.annotation.Value;
 import jakarta.validation.Valid;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -30,20 +31,25 @@ import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/auth")
-@CrossOrigin(origins = "http://localhost:5173")
 @Tag(name = "Authentication", description = "API endpoints for authentication with AWS Cognito")
 public class AuthController {
     
     private final UserRepository userRepository;
     private final OAuth2AuthorizedClientService authorizedClientService;
     private final HealthProfileRepository healthProfileRepository;
+    private final String backendUrl;
+    private final String frontendUrl;
     
     public AuthController(UserRepository userRepository, 
                          OAuth2AuthorizedClientService authorizedClientService,
-                         HealthProfileRepository healthProfileRepository) {
+                         HealthProfileRepository healthProfileRepository,
+                         @Value("${app.backend.url:http://localhost:8080}") String backendUrl,
+                         @Value("${app.frontend.url:http://localhost:5173}") String frontendUrl) {
         this.userRepository = userRepository;
         this.authorizedClientService = authorizedClientService;
         this.healthProfileRepository = healthProfileRepository;
+        this.backendUrl = backendUrl;
+        this.frontendUrl = frontendUrl;
     }
     
     @Operation(
@@ -63,7 +69,7 @@ public class AuthController {
     @GetMapping("/login")
     public ResponseEntity<Map<String, String>> getLoginUrl() {
         Map<String, String> response = new HashMap<>();
-        response.put("loginUrl", "http://localhost:8080/oauth2/authorization/cognito");
+        response.put("loginUrl", backendUrl + "/oauth2/authorization/cognito");
         response.put("message", "Redirect to this URL to start login");
         return ResponseEntity.ok(response);
     }
@@ -166,8 +172,8 @@ public class AuthController {
     @PostMapping("/logout")
     public ResponseEntity<Map<String, String>> logout() {
         Map<String, String> response = new HashMap<>();
-        response.put("logoutUrl", "http://localhost:8080/logout");
-        response.put("redirectUrl", "http://localhost:5173");
+        response.put("logoutUrl", backendUrl + "/logout");
+        response.put("redirectUrl", frontendUrl);
         response.put("message", "Redirect to logoutUrl to logout, then will redirect to frontend");
         return ResponseEntity.ok(response);
     }
@@ -352,7 +358,7 @@ public class AuthController {
         // Kiểm tra nếu chưa đăng nhập
         if (authentication == null || !authentication.isAuthenticated()) {
             response.put("error", "Chưa đăng nhập ní ơi!");
-            response.put("message", "Vui lòng đăng nhập tại: http://localhost:8080/oauth2/authorization/cognito");
+            response.put("message", "Vui lòng đăng nhập tại: " + backendUrl + "/oauth2/authorization/cognito");
             return ResponseEntity.status(401).body(response);
         }
         
@@ -390,7 +396,7 @@ public class AuthController {
                 }
             } else {
                 response.put("error", "Không tìm thấy token");
-                response.put("message", "Vui lòng đăng nhập tại: http://localhost:8080/oauth2/authorization/cognito");
+                response.put("message", "Vui lòng đăng nhập tại: " + backendUrl + "/oauth2/authorization/cognito");
                 return ResponseEntity.status(401).body(response);
             }
         }

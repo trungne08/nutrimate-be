@@ -26,7 +26,6 @@ import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/health")
-@CrossOrigin(origins = "http://localhost:5173")
 @Tag(name = "Health Profile", description = "API endpoints for managing user health profiles")
 public class HealthProfileController {
     

@@ -10,6 +10,7 @@ import org.springframework.security.oauth2.client.OAuth2AuthorizedClientService;
 import org.springframework.security.oauth2.client.annotation.RegisteredOAuth2AuthorizedClient;
 import org.springframework.security.oauth2.core.oidc.user.OidcUser;
 import org.springframework.security.oauth2.core.user.OAuth2User;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.web.authentication.SimpleUrlAuthenticationSuccessHandler;
 import org.springframework.stereotype.Component;
 import org.springframework.web.util.UriComponentsBuilder;
@@ -20,10 +21,13 @@ import java.io.IOException;
 public class OAuth2AuthenticationSuccessHandler extends SimpleUrlAuthenticationSuccessHandler {
     
     private final OAuth2AuthorizedClientService authorizedClientService;
+    private final String frontendUrl;
     
-    public OAuth2AuthenticationSuccessHandler(OAuth2AuthorizedClientService authorizedClientService) {
+    public OAuth2AuthenticationSuccessHandler(OAuth2AuthorizedClientService authorizedClientService,
+                                             @Value("${app.frontend.url:http://localhost:5173}") String frontendUrl) {
         this.authorizedClientService = authorizedClientService;
-        setDefaultTargetUrl("http://localhost:5173");
+        this.frontendUrl = frontendUrl;
+        setDefaultTargetUrl(frontendUrl);
     }
     
     @Override
@@ -44,8 +48,7 @@ public class OAuth2AuthenticationSuccessHandler extends SimpleUrlAuthenticationS
                                        HttpServletResponse response, 
                                        Authentication authentication) {
         
-        String targetUrl = "http://localhost:5173";
-        UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(targetUrl);
+        UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(frontendUrl);
         
         // Lấy token từ authentication
         if (authentication.getPrincipal() instanceof OidcUser) {

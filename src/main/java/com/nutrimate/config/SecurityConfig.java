@@ -3,11 +3,13 @@ package com.nutrimate.config;
 import com.nutrimate.config.OAuth2AuthenticationSuccessHandler;
 import com.nutrimate.service.CustomOAuth2UserService;
 import com.nutrimate.service.CustomOidcUserService;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.web.cors.CorsConfigurationSource;
 
 @Configuration
 @EnableWebSecurity
@@ -16,19 +18,27 @@ public class SecurityConfig {
     private final CustomOAuth2UserService customOAuth2UserService;
     private final CustomOidcUserService customOidcUserService;
     private final OAuth2AuthenticationSuccessHandler oAuth2AuthenticationSuccessHandler;
+    private final String frontendUrl;
+    private final CorsConfigurationSource corsConfigurationSource;
     
     public SecurityConfig(CustomOAuth2UserService customOAuth2UserService, 
                          CustomOidcUserService customOidcUserService,
-                         OAuth2AuthenticationSuccessHandler oAuth2AuthenticationSuccessHandler) {
+                         OAuth2AuthenticationSuccessHandler oAuth2AuthenticationSuccessHandler,
+                         CorsConfigurationSource corsConfigurationSource,
+                         @Value("${app.frontend.url:http://localhost:5173}") String frontendUrl) {
         this.customOAuth2UserService = customOAuth2UserService;
         this.customOidcUserService = customOidcUserService;
         this.oAuth2AuthenticationSuccessHandler = oAuth2AuthenticationSuccessHandler;
+        this.corsConfigurationSource = corsConfigurationSource;
+        this.frontendUrl = frontendUrl;
         System.out.println(">>> 🔧 SecurityConfig đã được khởi tạo với CustomOAuth2UserService và CustomOidcUserService");
     }
     
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
+            // Cấu hình CORS
+            .cors(cors -> cors.configurationSource(corsConfigurationSource))
             // Tắt CSRF để dễ test
             .csrf(csrf -> csrf.disable())
             
@@ -65,7 +75,7 @@ public class SecurityConfig {
             // Cấu hình Logout
             .logout(logout -> logout
                 // Chuyển hướng về Frontend sau khi logout thành công
-                .logoutSuccessUrl("http://localhost:5173")
+                .logoutSuccessUrl(frontendUrl)
                 .invalidateHttpSession(true)
                 .clearAuthentication(true)
                 .deleteCookies("JSESSIONID")
