@@ -23,22 +23,23 @@ public class CorsConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
         
-        // Cho phép cả frontend URL từ config và localhost (để dev local)
-        List<String> origins = Arrays.asList(
-            frontendUrl,
-            "http://localhost:5173",
-            "http://127.0.0.1:5173"
-        );
+        // MỞ FULL CORS - Cho phép tất cả origins
+        // Dùng setAllowedOriginPatterns thay vì setAllowedOrigins để có thể dùng "*" với credentials
+        configuration.setAllowedOriginPatterns(Arrays.asList("*"));
         
-        // Nếu có thêm allowed origins từ env, thêm vào
-        if (allowedOrigins != null && !allowedOrigins.isEmpty()) {
-            origins.addAll(Arrays.asList(allowedOrigins.split(",")));
-        }
+        // Cho phép tất cả methods
+        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH", "HEAD"));
         
-        configuration.setAllowedOrigins(origins);
-        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
+        // Cho phép tất cả headers
         configuration.setAllowedHeaders(Arrays.asList("*"));
+        
+        // Cho phép credentials (cookies, authorization headers)
         configuration.setAllowCredentials(true);
+        
+        // Expose tất cả headers cho frontend
+        configuration.setExposedHeaders(Arrays.asList("*"));
+        
+        // Cache preflight requests trong 1 giờ
         configuration.setMaxAge(3600L);
         
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

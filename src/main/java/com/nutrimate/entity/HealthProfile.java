@@ -16,11 +16,12 @@ import java.time.LocalDate;
 public class HealthProfile {
     
     @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
-    @Column(name = "profile_id")
+    @GeneratedValue(generator = "uuid")
+    @GenericGenerator(name = "uuid", strategy = "uuid2")
+    @Column(name = "profile_id", length = 36) // 👈 UUID string (36 ký tự) - QUAN TRỌNG: phải có length
     private String id;
     
-    @Column(name = "user_id")
+    @Column(name = "user_id", nullable = false, length = 36) // 👈 QUAN TRỌNG: phải có length
     private String userId;
     
     @ManyToOne(fetch = FetchType.LAZY)
