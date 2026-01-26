@@ -27,22 +27,23 @@ public class CorsConfig {
         // Dùng setAllowedOriginPatterns thay vì setAllowedOrigins để có thể dùng "*" với credentials
         configuration.setAllowedOriginPatterns(Arrays.asList("*"));
         
-        // Cho phép tất cả methods
+        // Cho phép tất cả methods (QUAN TRỌNG: phải có OPTIONS cho preflight)
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH", "HEAD"));
         
-        // Cho phép tất cả headers
+        // Cho phép tất cả headers (bao gồm Authorization, Content-Type, etc.)
         configuration.setAllowedHeaders(Arrays.asList("*"));
         
         // Cho phép credentials (cookies, authorization headers)
         configuration.setAllowCredentials(true);
         
-        // Expose tất cả headers cho frontend
+        // Expose tất cả headers cho frontend (bao gồm Authorization, Set-Cookie, etc.)
         configuration.setExposedHeaders(Arrays.asList("*"));
         
         // Cache preflight requests trong 1 giờ
         configuration.setMaxAge(3600L);
         
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        // Áp dụng CORS cho TẤT CẢ các endpoints
         source.registerCorsConfiguration("/**", configuration);
         
         return source;

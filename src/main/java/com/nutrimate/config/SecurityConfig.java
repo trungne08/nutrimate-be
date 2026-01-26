@@ -44,6 +44,8 @@ public class SecurityConfig {
             
             // Cấu hình authorization
             .authorizeHttpRequests(auth -> auth
+                // Cho phép OPTIONS requests (CORS preflight) - QUAN TRỌNG!
+                .requestMatchers("OPTIONS").permitAll()
                 // Cho phép truy cập công khai
                 .requestMatchers("/", "/login**", "/error", 
                                 "/api/auth/login", "/api/auth/status", 
