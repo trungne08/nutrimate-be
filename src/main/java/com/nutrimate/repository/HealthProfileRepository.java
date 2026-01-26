@@ -7,9 +7,9 @@ import org.springframework.stereotype.Repository;
 import java.util.Optional;
 
 @Repository
-public interface HealthProfileRepository extends JpaRepository<HealthProfile, Long> {
+public interface HealthProfileRepository extends JpaRepository<HealthProfile, String> {
     
-    Optional<HealthProfile> findByUserId(Long userId);
+    Optional<HealthProfile> findByUserId(String userId);
     
-    boolean existsByUserId(Long userId);
+    boolean existsByUserId(String userId);
 }
