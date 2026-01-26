@@ -16,9 +16,8 @@ import java.time.LocalDateTime;
 public class User {
     
     @Id
-    @GeneratedValue(generator = "uuid")
-    @GenericGenerator(name = "uuid", strategy = "uuid2")
-    @Column(name = "user_id", length = 36) // 👈 UUID string (36 ký tự)
+    @GeneratedValue(strategy = GenerationType.UUID) // 👈 Tự sinh UUID
+    @Column(name = "user_id")
     private String id;
     
     @Column(name = "cognito_id", unique = true, length = 255)
