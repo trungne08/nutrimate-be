@@ -1,7 +1,11 @@
 package com.nutrimate.controller;
 
+import com.nutrimate.dto.UpdateProfileRequest;
+import com.nutrimate.entity.HealthProfile;
 import com.nutrimate.entity.User;
+import com.nutrimate.repository.HealthProfileRepository;
 import com.nutrimate.repository.UserRepository;
+import jakarta.validation.Valid;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -32,11 +36,14 @@ public class AuthController {
     
     private final UserRepository userRepository;
     private final OAuth2AuthorizedClientService authorizedClientService;
+    private final HealthProfileRepository healthProfileRepository;
     
     public AuthController(UserRepository userRepository, 
-                         OAuth2AuthorizedClientService authorizedClientService) {
+                         OAuth2AuthorizedClientService authorizedClientService,
+                         HealthProfileRepository healthProfileRepository) {
         this.userRepository = userRepository;
         this.authorizedClientService = authorizedClientService;
+        this.healthProfileRepository = healthProfileRepository;
     }
     
     @Operation(
@@ -56,7 +63,7 @@ public class AuthController {
     @GetMapping("/login")
     public ResponseEntity<Map<String, String>> getLoginUrl() {
         Map<String, String> response = new HashMap<>();
-        response.put("loginUrl", "/oauth2/authorization/cognito");
+        response.put("loginUrl", "http://localhost:8080/oauth2/authorization/cognito");
         response.put("message", "Redirect to this URL to start login");
         return ResponseEntity.ok(response);
     }
@@ -159,8 +166,9 @@ public class AuthController {
     @PostMapping("/logout")
     public ResponseEntity<Map<String, String>> logout() {
         Map<String, String> response = new HashMap<>();
-        response.put("logoutUrl", "/logout");
-        response.put("message", "Redirect to this URL to logout");
+        response.put("logoutUrl", "http://localhost:8080/logout");
+        response.put("redirectUrl", "http://localhost:5173");
+        response.put("message", "Redirect to logoutUrl to logout, then will redirect to frontend");
         return ResponseEntity.ok(response);
     }
     
@@ -190,6 +198,127 @@ public class AuthController {
         if (isAuthenticated) {
             String email = oidcUser != null ? oidcUser.getEmail() : oauth2User.getAttribute("email");
             response.put("email", email);
+        }
+        
+        return ResponseEntity.ok(response);
+    }
+    
+    @Operation(
+            summary = "Check profile completion status",
+            description = "Checks if the authenticated user's profile and health profile are complete. " +
+                         "Returns missing fields for both profiles. Frontend should use this to determine " +
+                         "if user needs to complete their profile. Requires authentication."
+    )
+    @ApiResponses(value = {
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "Profile status retrieved successfully",
+                    content = @Content(
+                            mediaType = "application/json",
+                            schema = @Schema(implementation = Map.class),
+                            examples = @ExampleObject(value = "{\"userProfile\": {\"complete\": false, \"missingFields\": [\"fullName\", \"phoneNumber\"]}, \"healthProfile\": {\"complete\": false, \"missingFields\": [\"gender\", \"dateOfBirth\", \"heightCm\", \"weightKg\"]}}")
+                    )
+            ),
+            @ApiResponse(
+                    responseCode = "401",
+                    description = "Unauthorized - User not authenticated"
+            )
+    })
+    @GetMapping("/profile/status")
+    public ResponseEntity<Map<String, Object>> checkProfileStatus(
+            @Parameter(hidden = true) @AuthenticationPrincipal OidcUser oidcUser,
+            @Parameter(hidden = true) @AuthenticationPrincipal OAuth2User oauth2User) {
+        
+        Map<String, Object> response = new HashMap<>();
+        
+        // Kiểm tra authentication
+        if (oidcUser == null && oauth2User == null) {
+            response.put("success", false);
+            response.put("message", "Unauthorized - Please login first");
+            return ResponseEntity.status(401).body(response);
+        }
+        
+        // Lấy email từ authenticated user
+        String email = oidcUser != null ? oidcUser.getEmail() : oauth2User.getAttribute("email");
+        
+        // Tìm user trong database
+        Optional<User> userOpt = userRepository.findByEmail(email);
+        
+        if (userOpt.isEmpty()) {
+            response.put("success", false);
+            response.put("message", "User not found in database");
+            return ResponseEntity.status(404).body(response);
+        }
+        
+        User user = userOpt.get();
+        
+        // Kiểm tra User Profile
+        Map<String, Object> userProfileStatus = new HashMap<>();
+        java.util.List<String> missingUserFields = new java.util.ArrayList<>();
+        
+        if (user.getFullName() == null || user.getFullName().trim().isEmpty()) {
+            missingUserFields.add("fullName");
+        }
+        if (user.getPhoneNumber() == null || user.getPhoneNumber().trim().isEmpty()) {
+            missingUserFields.add("phoneNumber");
+        }
+        
+        userProfileStatus.put("complete", missingUserFields.isEmpty());
+        userProfileStatus.put("missingFields", missingUserFields);
+        
+        // Kiểm tra Health Profile
+        Map<String, Object> healthProfileStatus = new HashMap<>();
+        java.util.List<String> missingHealthFields = new java.util.ArrayList<>();
+        
+        Optional<HealthProfile> healthProfileOpt = healthProfileRepository.findByUserId(user.getId());
+        
+        if (healthProfileOpt.isEmpty()) {
+            // Chưa có health profile
+            healthProfileStatus.put("exists", false);
+            healthProfileStatus.put("complete", false);
+            // Chỉ các trường bắt buộc: gender, dateOfBirth, heightCm, weightKg
+            missingHealthFields.add("gender");
+            missingHealthFields.add("dateOfBirth");
+            missingHealthFields.add("heightCm");
+            missingHealthFields.add("weightKg");
+            // activityLevel và dietaryPreference là optional, không thêm vào missingFields
+            healthProfileStatus.put("missingFields", missingHealthFields);
+        } else {
+            HealthProfile healthProfile = healthProfileOpt.get();
+            healthProfileStatus.put("exists", true);
+            
+            // Kiểm tra các trường BẮT BUỘC để tính toán (không bao gồm activityLevel và dietaryPreference)
+            if (healthProfile.getGender() == null) {
+                missingHealthFields.add("gender");
+            }
+            if (healthProfile.getDateOfBirth() == null) {
+                missingHealthFields.add("dateOfBirth");
+            }
+            if (healthProfile.getHeightCm() == null || healthProfile.getHeightCm() <= 0) {
+                missingHealthFields.add("heightCm");
+            }
+            if (healthProfile.getWeightKg() == null || healthProfile.getWeightKg() <= 0) {
+                missingHealthFields.add("weightKg");
+            }
+            // activityLevel và dietaryPreference là optional, không kiểm tra
+            
+            healthProfileStatus.put("complete", missingHealthFields.isEmpty());
+            healthProfileStatus.put("missingFields", missingHealthFields);
+        }
+        
+        // Tổng hợp kết quả
+        boolean allComplete = userProfileStatus.get("complete").equals(true) && 
+                            healthProfileStatus.get("complete").equals(true);
+        
+        response.put("success", true);
+        response.put("allComplete", allComplete);
+        response.put("userProfile", userProfileStatus);
+        response.put("healthProfile", healthProfileStatus);
+        
+        if (!allComplete) {
+            response.put("message", "Profile is incomplete. Please complete missing fields.");
+        } else {
+            response.put("message", "Profile is complete.");
         }
         
         return ResponseEntity.ok(response);
@@ -265,6 +394,172 @@ public class AuthController {
                 return ResponseEntity.status(401).body(response);
             }
         }
+        
+        return ResponseEntity.ok(response);
+    }
+    
+    @Operation(
+            summary = "Update user profile",
+            description = "Updates the authenticated user's profile information (fullName, username, phoneNumber, avatarUrl). " +
+                         "All fields are optional - only provided fields will be updated. " +
+                         "User can only update their own profile. Requires authentication."
+    )
+    @ApiResponses(value = {
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "Profile updated successfully",
+                    content = @Content(
+                            mediaType = "application/json",
+                            schema = @Schema(implementation = Map.class),
+                            examples = @ExampleObject(value = "{\"success\": true, \"message\": \"Profile updated successfully\", \"user\": {\"id\": 1, \"email\": \"user@example.com\", \"fullName\": \"John Doe\", \"username\": \"johndoe\", \"phoneNumber\": \"+84901234567\", \"role\": \"MEMBER\", \"avatarUrl\": \"https://...\"}}")
+                    )
+            ),
+            @ApiResponse(
+                    responseCode = "400",
+                    description = "Bad Request - Validation error"
+            ),
+            @ApiResponse(
+                    responseCode = "401",
+                    description = "Unauthorized - User not authenticated"
+            ),
+            @ApiResponse(
+                    responseCode = "404",
+                    description = "User not found in database"
+            )
+    })
+    @PutMapping("/profile")
+    public ResponseEntity<Map<String, Object>> updateProfile(
+            @Parameter(hidden = true) @AuthenticationPrincipal OidcUser oidcUser,
+            @Parameter(hidden = true) @AuthenticationPrincipal OAuth2User oauth2User,
+            @Valid @RequestBody UpdateProfileRequest request) {
+        
+        Map<String, Object> response = new HashMap<>();
+        
+        // Kiểm tra authentication
+        if (oidcUser == null && oauth2User == null) {
+            response.put("success", false);
+            response.put("message", "Unauthorized - Please login first");
+            return ResponseEntity.status(401).body(response);
+        }
+        
+        // Lấy email từ authenticated user
+        String email = oidcUser != null ? oidcUser.getEmail() : oauth2User.getAttribute("email");
+        
+        // Tìm user trong database
+        Optional<User> userOpt = userRepository.findByEmail(email);
+        
+        if (userOpt.isEmpty()) {
+            response.put("success", false);
+            response.put("message", "User not found in database");
+            return ResponseEntity.status(404).body(response);
+        }
+        
+        User user = userOpt.get();
+        
+        // Cập nhật các trường (chỉ cập nhật nếu có giá trị mới)
+        if (request.getFullName() != null && !request.getFullName().trim().isEmpty()) {
+            user.setFullName(request.getFullName().trim());
+        }
+        
+        if (request.getUsername() != null && !request.getUsername().trim().isEmpty()) {
+            user.setUsername(request.getUsername().trim());
+        }
+        
+        if (request.getPhoneNumber() != null && !request.getPhoneNumber().trim().isEmpty()) {
+            user.setPhoneNumber(request.getPhoneNumber().trim());
+        }
+        
+        if (request.getAvatarUrl() != null && !request.getAvatarUrl().trim().isEmpty()) {
+            user.setAvatarUrl(request.getAvatarUrl().trim());
+        }
+        
+        // Lưu vào database
+        try {
+            userRepository.save(user);
+            
+            // Trả về thông tin user đã cập nhật
+            Map<String, Object> userInfo = new HashMap<>();
+            userInfo.put("id", user.getId());
+            userInfo.put("email", user.getEmail());
+            userInfo.put("fullName", user.getFullName() != null ? user.getFullName() : "");
+            userInfo.put("username", user.getUsername() != null ? user.getUsername() : "");
+            userInfo.put("phoneNumber", user.getPhoneNumber() != null ? user.getPhoneNumber() : "");
+            userInfo.put("role", user.getRole().name());
+            userInfo.put("avatarUrl", user.getAvatarUrl() != null ? user.getAvatarUrl() : "");
+            
+            response.put("success", true);
+            response.put("message", "Profile updated successfully");
+            response.put("user", userInfo);
+            
+            return ResponseEntity.ok(response);
+            
+        } catch (Exception e) {
+            response.put("success", false);
+            response.put("message", "Error updating profile: " + e.getMessage());
+            return ResponseEntity.status(500).body(response);
+        }
+    }
+    
+    @Operation(
+            summary = "Get user profile",
+            description = "Returns the authenticated user's profile information. Requires authentication."
+    )
+    @ApiResponses(value = {
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "Profile retrieved successfully",
+                    content = @Content(
+                            mediaType = "application/json",
+                            schema = @Schema(implementation = Map.class)
+                    )
+            ),
+            @ApiResponse(
+                    responseCode = "401",
+                    description = "Unauthorized - User not authenticated"
+            )
+    })
+    @GetMapping("/profile")
+    public ResponseEntity<Map<String, Object>> getProfile(
+            @Parameter(hidden = true) @AuthenticationPrincipal OidcUser oidcUser,
+            @Parameter(hidden = true) @AuthenticationPrincipal OAuth2User oauth2User) {
+        
+        Map<String, Object> response = new HashMap<>();
+        
+        // Kiểm tra authentication
+        if (oidcUser == null && oauth2User == null) {
+            response.put("success", false);
+            response.put("message", "Unauthorized - Please login first");
+            return ResponseEntity.status(401).body(response);
+        }
+        
+        // Lấy email từ authenticated user
+        String email = oidcUser != null ? oidcUser.getEmail() : oauth2User.getAttribute("email");
+        
+        // Tìm user trong database
+        Optional<User> userOpt = userRepository.findByEmail(email);
+        
+        if (userOpt.isEmpty()) {
+            response.put("success", false);
+            response.put("message", "User not found in database");
+            return ResponseEntity.status(404).body(response);
+        }
+        
+        User user = userOpt.get();
+        
+        // Trả về thông tin user
+        Map<String, Object> userInfo = new HashMap<>();
+        userInfo.put("id", user.getId());
+        userInfo.put("email", user.getEmail());
+        userInfo.put("fullName", user.getFullName() != null ? user.getFullName() : "");
+        userInfo.put("username", user.getUsername() != null ? user.getUsername() : "");
+        userInfo.put("phoneNumber", user.getPhoneNumber() != null ? user.getPhoneNumber() : "");
+        userInfo.put("role", user.getRole().name());
+        userInfo.put("avatarUrl", user.getAvatarUrl() != null ? user.getAvatarUrl() : "");
+        userInfo.put("createdAt", user.getCreatedAt());
+        userInfo.put("updatedAt", user.getUpdatedAt());
+        
+        response.put("success", true);
+        response.put("user", userInfo);
         
         return ResponseEntity.ok(response);
     }

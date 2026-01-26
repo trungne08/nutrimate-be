@@ -1,5 +1,6 @@
 package com.nutrimate.config;
 
+import com.nutrimate.config.OAuth2AuthenticationSuccessHandler;
 import com.nutrimate.service.CustomOAuth2UserService;
 import com.nutrimate.service.CustomOidcUserService;
 import org.springframework.context.annotation.Bean;
@@ -14,11 +15,14 @@ public class SecurityConfig {
     
     private final CustomOAuth2UserService customOAuth2UserService;
     private final CustomOidcUserService customOidcUserService;
+    private final OAuth2AuthenticationSuccessHandler oAuth2AuthenticationSuccessHandler;
     
     public SecurityConfig(CustomOAuth2UserService customOAuth2UserService, 
-                         CustomOidcUserService customOidcUserService) {
+                         CustomOidcUserService customOidcUserService,
+                         OAuth2AuthenticationSuccessHandler oAuth2AuthenticationSuccessHandler) {
         this.customOAuth2UserService = customOAuth2UserService;
         this.customOidcUserService = customOidcUserService;
+        this.oAuth2AuthenticationSuccessHandler = oAuth2AuthenticationSuccessHandler;
         System.out.println(">>> 🔧 SecurityConfig đã được khởi tạo với CustomOAuth2UserService và CustomOidcUserService");
     }
     
@@ -37,7 +41,9 @@ public class SecurityConfig {
                                 // Swagger UI
                                 "/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html").permitAll()
                 // Các API yêu cầu xác thực
-                .requestMatchers("/api/auth/me", "/api/auth/logout", "/api/auth/token").authenticated()
+                .requestMatchers("/api/auth/me", "/api/auth/logout", "/api/auth/token", 
+                                "/api/auth/profile", "/api/auth/profile/status", 
+                                "/api/health/**").authenticated()
                 // Các trang khác yêu cầu xác thực
                 .anyRequest().authenticated()
             )
@@ -51,9 +57,18 @@ public class SecurityConfig {
                     // Fallback cho OAuth2 thông thường
                     userInfo.userService(customOAuth2UserService);
                 })
-                // Chuyển hướng về Frontend sau khi login thành công
-                .defaultSuccessUrl("http://localhost:5173", true)
+                // Sử dụng custom success handler để gửi token trong URL
+                .successHandler(oAuth2AuthenticationSuccessHandler)
                 .failureUrl("/error")
+            )
+            
+            // Cấu hình Logout
+            .logout(logout -> logout
+                // Chuyển hướng về Frontend sau khi logout thành công
+                .logoutSuccessUrl("http://localhost:5173")
+                .invalidateHttpSession(true)
+                .clearAuthentication(true)
+                .deleteCookies("JSESSIONID")
             );
         
         return http.build();
