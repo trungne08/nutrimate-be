@@ -27,11 +27,15 @@ public class CorsConfig {
         // Tạo danh sách origins cho phép
         List<String> origins = new ArrayList<>();
         
-        // Thêm localhost (cho dev)
-        origins.add("http://localhost:5173");
+        // Thêm localhost cho Vite (port mặc định và các port phổ biến)
+        origins.add("http://localhost:5173");      // Vite default
         origins.add("http://127.0.0.1:5173");
-        origins.add("http://localhost:3000");
+        origins.add("http://localhost:5174");       // Vite fallback port
+        origins.add("http://127.0.0.1:5174");
+        origins.add("http://localhost:3000");       // React default
         origins.add("http://127.0.0.1:3000");
+        origins.add("http://localhost:5175");       // Vite thêm port nếu 5173 bị chiếm
+        origins.add("http://127.0.0.1:5175");
         
         // Thêm frontend URL từ config
         if (frontendUrl != null && !frontendUrl.isEmpty()) {
