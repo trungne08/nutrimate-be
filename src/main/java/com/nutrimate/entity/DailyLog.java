@@ -19,10 +19,10 @@ public class DailyLog {
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
-    @Column(name = "log_date")
+    @Column(name = "log_date", nullable = false)
     private LocalDate logDate;
 
-    @Column(name = "total_calories_in")
+    @Column(name = "total_calories_in", nullable = false)
     private Integer totalCaloriesIn;
 
     private String notes;
