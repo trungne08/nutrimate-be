@@ -2,41 +2,56 @@ package com.nutrimate.controller;
 
 import com.nutrimate.dto.RecipeDTO;
 import com.nutrimate.entity.Recipe;
-import com.nutrimate.service.RecipeService;
 import com.nutrimate.entity.User;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import com.nutrimate.exception.BadRequestException;
+import com.nutrimate.exception.ResourceNotFoundException;
 import com.nutrimate.repository.UserRepository;
+import com.nutrimate.service.RecipeService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.core.oidc.user.OidcUser;
 import org.springframework.security.oauth2.core.user.OAuth2User;
-import io.swagger.v3.oas.annotations.Parameter;
 import org.springframework.web.bind.annotation.*;
-import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/recipes")
-@Tag(name = "Recipe Management", description = "APIs for Recipe Library (Admin manages, User views)")
+@Tag(name = "Recipe Management", description = "APIs for Recipe Library")
+@RequiredArgsConstructor
 public class RecipeController {
 
     private final RecipeService recipeService;
     private final UserRepository userRepository;
 
-    public RecipeController(RecipeService recipeService, UserRepository userRepository) {
-        this.recipeService = recipeService;
-        this.userRepository = userRepository;
+    // Helper
+    private String getCurrentUserId(Authentication authentication) {
+        if (authentication == null || !authentication.isAuthenticated()) {
+            throw new BadRequestException("Vui lòng đăng nhập để xem công thức");
+        }
+        String email = null;
+        Object principal = authentication.getPrincipal();
+        if (principal instanceof Jwt) email = ((Jwt) principal).getClaimAsString("email");
+        else if (principal instanceof OidcUser) email = ((OidcUser) principal).getEmail();
+        else if (principal instanceof OAuth2User) email = ((OAuth2User) principal).getAttribute("email");
+
+        if (email == null) throw new BadRequestException("Token không hợp lệ");
+
+        return userRepository.findByEmail(email)
+                .map(User::getId)
+                .orElseThrow(() -> new ResourceNotFoundException("User không tồn tại"));
     }
 
-    // --- PUBLIC APIs (Ai cũng xem được) ---
-
-    // 4.1 GET /api/recipes
+    // 4.1 Search Public
     @Operation(summary = "Search recipes (Public)")
     @GetMapping
     public ResponseEntity<Page<Recipe>> getRecipes(
@@ -50,67 +65,38 @@ public class RecipeController {
         return ResponseEntity.ok(recipeService.getRecipes(keyword, maxCal, pageable));
     }
 
-    // 4.2 GET /api/recipes/{id}
+    // 4.2 Detail (Có check limit)
     @Operation(summary = "Get recipe detail (Limit 5/day for Free users)")
     @GetMapping("/{id}")
-    public ResponseEntity<?> getRecipeById(
+    public ResponseEntity<Recipe> getRecipeById(
             @PathVariable String id,
-            // 👇 Lấy thông tin user từ Token (Cognito)
-            @Parameter(hidden = true) @AuthenticationPrincipal OidcUser oidcUser,
-            @Parameter(hidden = true) @AuthenticationPrincipal OAuth2User oauth2User) {
+            @Parameter(hidden = true) Authentication authentication) {
 
-        // 1. Lấy email từ Token
-        String email = null;
-        if (oidcUser != null) {
-            email = oidcUser.getEmail();
-        } else if (oauth2User != null) {
-            email = oauth2User.getAttribute("email");
-        }
+        // Gọi helper để lấy ID (nếu chưa login sẽ throw 400/404 tự động)
+        String userId = getCurrentUserId(authentication);
 
-        // 2. Nếu chưa đăng nhập -> Báo lỗi 401
-        if (email == null) {
-            return ResponseEntity.status(401).body("Unauthorized: Please login to view recipes.");
-        }
-
-        // 3. Tìm User trong DB bằng email để lấy userId
-        Optional<User> userOpt = userRepository.findByEmail(email);
-        if (userOpt.isEmpty()) {
-            return ResponseEntity.status(404).body("User not found in database. Please login again to sync.");
-        }
-
-        String userId = userOpt.get().getId();
-
-        // 4. Gọi Service kèm userId để check giới hạn xem
-        try {
-            Recipe recipe = recipeService.getRecipeById(id, userId);
-            return ResponseEntity.ok(recipe);
-        } catch (RuntimeException e) {
-            // Nếu quá giới hạn 5 bài -> Trả về lỗi 403 Forbidden
-            return ResponseEntity.status(403).body(e.getMessage());
-        }
+        // Service sẽ tự throw ForbiddenException nếu quá giới hạn
+        return ResponseEntity.ok(recipeService.getRecipeById(id, userId));
     }
-    // --- ADMIN APIs (Chỉ Admin được thao tác) ---
 
-    // 4.3 POST /api/recipes
+    // --- ADMIN APIs ---
     @Operation(summary = "[Admin] Create new recipe")
     @PostMapping
-    @PreAuthorize("hasRole('ADMIN')") // 👈 CHỐT: Chỉ Admin được tạo
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Recipe> createRecipe(@Valid @RequestBody RecipeDTO recipeDTO) {
         return ResponseEntity.ok(recipeService.createRecipe(recipeDTO));
     }
 
-    // 4.4 PUT /api/recipes/{id}
     @Operation(summary = "[Admin] Update recipe")
     @PutMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')") // 👈 CHỐT: Chỉ Admin được sửa
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Recipe> updateRecipe(@PathVariable String id, @Valid @RequestBody RecipeDTO recipeDTO) {
         return ResponseEntity.ok(recipeService.updateRecipe(id, recipeDTO));
     }
 
-    // 4.5 DELETE /api/recipes/{id}
     @Operation(summary = "[Admin] Delete recipe")
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')") // 👈 CHỐT: Chỉ Admin được xóa
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<String> deleteRecipe(@PathVariable String id) {
         recipeService.deleteRecipe(id);
         return ResponseEntity.ok("Recipe deleted successfully");

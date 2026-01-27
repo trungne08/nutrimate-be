@@ -2,6 +2,8 @@ package com.nutrimate.service;
 
 import com.nutrimate.dto.RecipeDTO;
 import com.nutrimate.entity.*;
+import com.nutrimate.exception.ForbiddenException;
+import com.nutrimate.exception.ResourceNotFoundException;
 import com.nutrimate.repository.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -35,16 +37,11 @@ public class RecipeService {
     // 👇 HÀM 2: Lấy Recipe + Check giới hạn (Dùng cho User xem chi tiết)
     @Transactional
     public Recipe getRecipeById(String recipeId, String userId) {
-        // Check giới hạn xem 5 bài/ngày
         checkAndIncrementFreeLimit(userId);
-
-        // Gọi lại hàm 1 để lấy dữ liệu
         return getRecipeById(recipeId);
     }
 
-    // Helper: Logic đếm số lượng view
     private void checkAndIncrementFreeLimit(String userId) {
-        // 1. Kiểm tra xem user có gói Premium/Expert không
         Optional<UserSubscription> activeSubOpt = userSubscriptionRepository.findActiveSubscriptionByUserId(userId);
         boolean isPremium = false;
         
@@ -55,10 +52,8 @@ public class RecipeService {
             }
         }
 
-        // 2. Nếu là Premium -> Không cần check limit, thoát hàm luôn
         if (isPremium) return;
 
-        // 3. Nếu là Free -> Check limit
         UserBenefitUsage usage = benefitUsageRepository.findByUserId(userId)
                 .orElseGet(() -> {
                     UserBenefitUsage newUsage = new UserBenefitUsage();
@@ -68,18 +63,15 @@ public class RecipeService {
                     return newUsage;
                 });
 
-        // Reset nếu sang ngày mới
         if (usage.getLastRecipeViewDate() == null || !usage.getLastRecipeViewDate().equals(LocalDate.now())) {
             usage.setDailyRecipeViews(0);
             usage.setLastRecipeViewDate(LocalDate.now());
         }
 
-        // Chặn nếu quá 5 bài
         if (usage.getDailyRecipeViews() >= 5) {
-            throw new RuntimeException("DAILY_LIMIT_REACHED: Bạn đã hết lượt xem miễn phí (5/5). Vui lòng nâng cấp Premium.");
+            throw new ForbiddenException("DAILY_LIMIT_REACHED: You have reached your free daily limit (5/5). Please upgrade to Premium.");
         }
 
-        // Tăng view
         usage.setDailyRecipeViews(usage.getDailyRecipeViews() + 1);
         benefitUsageRepository.save(usage);
     }
@@ -103,7 +95,7 @@ public class RecipeService {
     @Transactional
     public void deleteRecipe(String id) {
         if (!recipeRepository.existsById(id)) {
-            throw new RuntimeException("Recipe not found to delete");
+            throw new ResourceNotFoundException("Recipe not found to delete");
         }
         recipeRepository.deleteById(id);
     }

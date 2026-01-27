@@ -2,6 +2,8 @@ package com.nutrimate.service;
 
 import com.nutrimate.dto.ChallengeDTO;
 import com.nutrimate.entity.*;
+import com.nutrimate.exception.ResourceNotFoundException;
+import com.nutrimate.exception.BadRequestException;
 import com.nutrimate.repository.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -35,11 +37,10 @@ public class ChallengeService {
         return challengeRepository.save(challenge);
     }
 
-    // 8.3 [ADMIN] Sửa thử thách
     @Transactional
     public Challenge updateChallenge(String id, ChallengeDTO.CreateRequest req) {
         Challenge challenge = challengeRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Challenge not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Challenge not found"));
         
         challenge.setTitle(req.getTitle());
         challenge.setDescription(req.getDescription());
@@ -49,30 +50,25 @@ public class ChallengeService {
         return challengeRepository.save(challenge);
     }
 
-    // 8.4 [ADMIN] Xóa thử thách
     @Transactional
     public void deleteChallenge(String id) {
         if (!challengeRepository.existsById(id)) {
-            throw new RuntimeException("Challenge not found");
+            throw new ResourceNotFoundException("Challenge not found");
         }
-        // Lưu ý: Nếu đã có người tham gia thì nên dùng Soft Delete hoặc chặn xóa
-        // Ở đây mình xóa thẳng để đơn giản code demo
         challengeRepository.deleteById(id);
     }
 
-    // 8.5 [MEMBER] Tham gia thử thách
     @Transactional
     public UserChallenge joinChallenge(String userId, String challengeId) {
-        // 1. Check xem đã tham gia chưa
         if (userChallengeRepository.findByUserIdAndChallengeId(userId, challengeId).isPresent()) {
-            throw new RuntimeException("Bạn đã tham gia thử thách này rồi!");
+            throw new BadRequestException("You have already joined this challenge!");
         }
 
-        User user = userRepository.findById(userId).orElseThrow();
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
         Challenge challenge = challengeRepository.findById(challengeId)
-                .orElseThrow(() -> new RuntimeException("Challenge not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Challenge not found"));
 
-        // 2. Tạo record UserChallenge
         UserChallenge uc = new UserChallenge();
         uc.setUser(user);
         uc.setChallenge(challenge);

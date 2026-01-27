@@ -5,6 +5,8 @@ import com.nutrimate.dto.BookingStatusDTO;
 import com.nutrimate.dto.PriceCheckResponseDTO;
 import com.nutrimate.entity.Booking;
 import com.nutrimate.entity.User;
+import com.nutrimate.exception.BadRequestException;
+import com.nutrimate.exception.ResourceNotFoundException;
 import com.nutrimate.repository.UserRepository;
 import com.nutrimate.service.BookingService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -13,7 +15,8 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.core.oidc.user.OidcUser;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.web.bind.annotation.*;
@@ -23,80 +26,72 @@ import java.util.List;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api") // Base path chung, cụ thể sẽ chia ở method
+@RequestMapping("/api")
 @Tag(name = "Booking Management", description = "Booking APIs for Member, Expert & Admin")
 @RequiredArgsConstructor
 public class BookingController {
 
     private final BookingService bookingService;
-    private final UserRepository userRepository; // Để lấy ID từ token
+    private final UserRepository userRepository;
 
-    // Helper: Lấy User ID từ Token
-    private String getCurrentUserId(OidcUser oidcUser, OAuth2User oauth2User) {
-        String email = (oidcUser != null) ? oidcUser.getEmail() : oauth2User.getAttribute("email");
-        return userRepository.findByEmail(email)
-                .map(User::getId)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+    private String getCurrentUserId(Authentication authentication) {
+        if (authentication == null || !authentication.isAuthenticated()) throw new BadRequestException("Vui lòng đăng nhập");
+        String email = null;
+        Object principal = authentication.getPrincipal();
+        if (principal instanceof Jwt) email = ((Jwt) principal).getClaimAsString("email");
+        else if (principal instanceof OidcUser) email = ((OidcUser) principal).getEmail();
+        else if (principal instanceof OAuth2User) email = ((OAuth2User) principal).getAttribute("email");
+        
+        if (email == null) throw new BadRequestException("Token không hợp lệ");
+        return userRepository.findByEmail(email).map(User::getId)
+                .orElseThrow(() -> new ResourceNotFoundException("User không tồn tại"));
     }
 
-    // 5.3 POST /api/bookings/check (MEMBER)
     @Operation(summary = "Check price before booking")
     @PostMapping("/bookings/check")
     @PreAuthorize("hasRole('MEMBER')")
     public ResponseEntity<PriceCheckResponseDTO> checkPrice(
             @RequestBody Map<String, String> request,
-            @Parameter(hidden = true) @AuthenticationPrincipal OidcUser oidcUser,
-            @Parameter(hidden = true) @AuthenticationPrincipal OAuth2User oauth2User) {
+            @Parameter(hidden = true) Authentication authentication) {
         
-        String userId = getCurrentUserId(oidcUser, oauth2User);
+        String userId = getCurrentUserId(authentication);
         return ResponseEntity.ok(bookingService.checkBookingPrice(userId, request.get("expertId")));
     }
 
-    // 5.4 POST /api/bookings (MEMBER)
     @Operation(summary = "Create a booking")
     @PostMapping("/bookings")
     @PreAuthorize("hasRole('MEMBER')")
     public ResponseEntity<Booking> createBooking(
             @RequestBody BookingRequestDTO request,
-            @Parameter(hidden = true) @AuthenticationPrincipal OidcUser oidcUser,
-            @Parameter(hidden = true) @AuthenticationPrincipal OAuth2User oauth2User) {
+            @Parameter(hidden = true) Authentication authentication) {
         
-        String userId = getCurrentUserId(oidcUser, oauth2User);
-        return ResponseEntity.ok(bookingService.createBooking(userId, request));
+        return ResponseEntity.ok(bookingService.createBooking(getCurrentUserId(authentication), request));
     }
 
-    // 5.5 GET /api/bookings/my-bookings (ALL)
     @Operation(summary = "View my booking history")
     @GetMapping("/bookings/my-bookings")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<List<Booking>> getMyBookings(
-            @Parameter(hidden = true) @AuthenticationPrincipal OidcUser oidcUser,
-            @Parameter(hidden = true) @AuthenticationPrincipal OAuth2User oauth2User) {
+            @Parameter(hidden = true) Authentication authentication) {
         
-        String userId = getCurrentUserId(oidcUser, oauth2User);
-        return ResponseEntity.ok(bookingService.getMyBookings(userId));
+        return ResponseEntity.ok(bookingService.getMyBookings(getCurrentUserId(authentication)));
     }
 
-    // 5.6 PUT /api/bookings/{id}/status (EXPERT)
     @Operation(summary = "[Expert] Confirm/Cancel booking")
     @PutMapping("/bookings/{id}/status")
     @PreAuthorize("hasRole('EXPERT')")
     public ResponseEntity<Booking> updateStatus(
             @PathVariable String id,
             @RequestBody BookingStatusDTO statusDTO,
-            @Parameter(hidden = true) @AuthenticationPrincipal OidcUser oidcUser,
-            @Parameter(hidden = true) @AuthenticationPrincipal OAuth2User oauth2User) {
+            @Parameter(hidden = true) Authentication authentication) {
         
-        String expertUserId = getCurrentUserId(oidcUser, oauth2User);
-        return ResponseEntity.ok(bookingService.updateStatus(id, expertUserId, statusDTO.getStatus()));
+        return ResponseEntity.ok(bookingService.updateStatus(id, getCurrentUserId(authentication), statusDTO.getStatus()));
     }
 
-    // 5.7 GET /api/admin/bookings (ADMIN)
     @Operation(summary = "[Admin] View all bookings")
     @GetMapping("/admin/bookings")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<List<Booking>> getAllBookings(
-            @RequestParam(required = false) LocalDate date) {
+    public ResponseEntity<List<Booking>> getAllBookings(@RequestParam(required = false) LocalDate date) {
         return ResponseEntity.ok(bookingService.getAllBookings(date));
     }
 }

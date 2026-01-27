@@ -3,6 +3,8 @@ package com.nutrimate.service;
 import com.nutrimate.dto.DailyLogResponseDTO;
 import com.nutrimate.dto.TrackingRequestDTO;
 import com.nutrimate.entity.*;
+import com.nutrimate.exception.ForbiddenException;
+import com.nutrimate.exception.ResourceNotFoundException;
 import com.nutrimate.repository.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -41,78 +43,67 @@ public class TrackingService {
     // 7.2 Thêm món ăn vào nhật ký
     @Transactional
     public DailyLogResponseDTO addFoodLog(String userId, TrackingRequestDTO.AddFoodLog req) {
-        // 1. Tìm hoặc tạo DailyLog cho ngày đó
         DailyLog dailyLog = dailyLogRepository.findByUserIdAndLogDate(userId, req.getDate())
                 .orElseGet(() -> {
                     DailyLog newLog = new DailyLog();
-                    newLog.setUser(userRepository.findById(userId).orElseThrow());
+                    newLog.setUser(userRepository.findById(userId)
+                            .orElseThrow(() -> new ResourceNotFoundException("User not found")));
                     newLog.setLogDate(req.getDate());
                     newLog.setTotalCaloriesIn(0);
                     return dailyLogRepository.save(newLog);
                 });
 
-        // 2. Lấy thông tin Recipe
         Recipe recipe = recipeRepository.findById(req.getRecipeId())
-                .orElseThrow(() -> new RuntimeException("Recipe not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Recipe not found"));
 
-        // 3. Tạo MealLog mới
         MealLog mealLog = new MealLog();
         mealLog.setDailyLog(dailyLog);
         mealLog.setRecipe(recipe);
         mealLog.setMealType(req.getMealType());
         mealLog.setAmount(req.getAmount());
         
-        // Tính calo: (Calo gốc * số lượng)
         int calConsumed = (int) (recipe.getCalories() * req.getAmount());
         mealLog.setCaloriesConsumed(calConsumed);
 
         mealLogRepository.save(mealLog);
-
-        // 4. Update tổng calo ngày
         updateDailyTotal(dailyLog);
 
         return mapToDTO(dailyLog);
     }
 
-    // 7.3 Sửa món ăn (Sửa số lượng)
+    // 7.3 Update Food Log
     @Transactional
     public DailyLogResponseDTO updateFoodLog(String userId, String mealLogId, TrackingRequestDTO.UpdateFoodLog req) {
         MealLog mealLog = mealLogRepository.findById(mealLogId)
-                .orElseThrow(() -> new RuntimeException("Log entry not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Food log entry not found"));
 
-        // Check quyền sở hữu
         if (!mealLog.getDailyLog().getUser().getId().equals(userId)) {
-            throw new RuntimeException("Unauthorized");
+            throw new ForbiddenException("You are not authorized to edit this log");
         }
 
-        // Cập nhật amount & calo
         mealLog.setAmount(req.getAmount());
         int newCal = (int) (mealLog.getRecipe().getCalories() * req.getAmount());
         mealLog.setCaloriesConsumed(newCal);
         
         mealLogRepository.save(mealLog);
-
-        // Update tổng
         updateDailyTotal(mealLog.getDailyLog());
 
         return mapToDTO(mealLog.getDailyLog());
     }
 
-    // 7.4 Xóa món ăn
+    // 7.4 Delete Food Log
     @Transactional
     public void deleteFoodLog(String userId, String mealLogId) {
         MealLog mealLog = mealLogRepository.findById(mealLogId)
-                .orElseThrow(() -> new RuntimeException("Log entry not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Food log entry not found"));
 
         if (!mealLog.getDailyLog().getUser().getId().equals(userId)) {
-            throw new RuntimeException("Unauthorized");
+            throw new ForbiddenException("You are not authorized to delete this log");
         }
         
         DailyLog parentLog = mealLog.getDailyLog();
         mealLogRepository.delete(mealLog);
         
-        // Update tổng (Sau khi xóa phải tính lại ngay)
-        // Lưu ý: Do delete chưa commit DB ngay, nên tính thủ công trừ đi
         parentLog.setTotalCaloriesIn(parentLog.getTotalCaloriesIn() - mealLog.getCaloriesConsumed());
         dailyLogRepository.save(parentLog);
     }

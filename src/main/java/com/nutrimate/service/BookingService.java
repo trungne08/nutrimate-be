@@ -3,6 +3,8 @@ package com.nutrimate.service;
 import com.nutrimate.dto.BookingRequestDTO;
 import com.nutrimate.dto.PriceCheckResponseDTO;
 import com.nutrimate.entity.*;
+import com.nutrimate.exception.ForbiddenException;
+import com.nutrimate.exception.ResourceNotFoundException;
 import com.nutrimate.repository.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -26,17 +28,15 @@ public class BookingService {
     // 5.3 CHECK GIÁ (Quan trọng: Logic trừ lượt Free)
     public PriceCheckResponseDTO checkBookingPrice(String userId, String expertId) {
         ExpertProfile expert = expertProfileRepository.findById(expertId)
-                .orElseThrow(() -> new RuntimeException("Expert not found"));
-
-        // Lấy thông tin gói cước
+                .orElseThrow(() -> new ResourceNotFoundException("Expert not found"));
+        
         Optional<UserSubscription> subOpt = subscriptionRepository.findActiveSubscriptionByUserId(userId);
         
         boolean isFree = false;
-        String msg = "Bạn sẽ trả phí gốc.";
+        String msg = "Standard price applied.";
 
         if (subOpt.isPresent()) {
             UserSubscription sub = subOpt.get();
-            // Nếu gói có hỗ trợ Expert (isExpertPlan = true)
             if (Boolean.TRUE.equals(sub.getPlan().getIsExpertPlan())) {
                 UserBenefitUsage usage = getOrCreateUsage(userId, sub);
                 int limit = sub.getPlan().getFreeSessionsPerCycle();
@@ -44,9 +44,9 @@ public class BookingService {
 
                 if (used < limit) {
                     isFree = true;
-                    msg = "Bạn được MIỄN PHÍ (Đã dùng " + used + "/" + limit + " lượt).";
+                    msg = "FREE SESSION APPLIED (Used " + used + "/" + limit + ").";
                 } else {
-                    msg = "Bạn đã hết lượt miễn phí trong chu kỳ này.";
+                    msg = "You have used all free sessions for this cycle.";
                 }
             }
         }
@@ -59,17 +59,16 @@ public class BookingService {
                 .build();
     }
 
-    // 5.4 TẠO BOOKING
     @Transactional
     public Booking createBooking(String userId, BookingRequestDTO req) {
-        User member = userRepository.findById(userId).orElseThrow();
-        ExpertProfile expertProfile = expertProfileRepository.findById(req.getExpertId()).orElseThrow();
-        User expertUser = expertProfile.getUser(); // Lấy User entity của Expert
+        User member = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+        ExpertProfile expertProfile = expertProfileRepository.findById(req.getExpertId())
+                .orElseThrow(() -> new ResourceNotFoundException("Expert not found"));
+        User expertUser = expertProfile.getUser();
 
-        // 1. Tính toán giá lại (Double check để tránh hack API)
         PriceCheckResponseDTO priceCheck = checkBookingPrice(userId, req.getExpertId());
 
-        // 2. Nếu Free -> Trừ lượt trong BenefitUsage
         if (priceCheck.isFreeSession()) {
             UserSubscription sub = subscriptionRepository.findActiveSubscriptionByUserId(userId).get();
             UserBenefitUsage usage = getOrCreateUsage(userId, sub);
@@ -77,7 +76,6 @@ public class BookingService {
             benefitUsageRepository.save(usage);
         }
 
-        // 3. Lưu Booking
         Booking booking = new Booking();
         booking.setMember(member);
         booking.setExpert(expertUser);
@@ -85,8 +83,8 @@ public class BookingService {
         booking.setOriginalPrice(priceCheck.getOriginalPrice());
         booking.setFinalPrice(priceCheck.getFinalPrice());
         booking.setIsFreeSession(priceCheck.isFreeSession());
-        booking.setStatus(Booking.BookingStatus.Pending); // Mặc định là Pending
-        booking.setMeetingLink(null); // Chưa có link
+        booking.setStatus(Booking.BookingStatus.Pending);
+        booking.setMeetingLink(null);
 
         return bookingRepository.save(booking);
     }
@@ -105,19 +103,21 @@ public class BookingService {
     @Transactional
     public Booking updateStatus(String bookingId, String expertUserId, String statusStr) {
         Booking booking = bookingRepository.findById(bookingId)
-                .orElseThrow(() -> new RuntimeException("Booking not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Booking not found"));
 
-        // Check quyền: Chỉ Expert của booking này mới được sửa
         if (!booking.getExpert().getId().equals(expertUserId)) {
-            throw new RuntimeException("Unauthorized: You are not the expert of this booking");
+            throw new ForbiddenException("Unauthorized: You are not the expert assigned to this booking");
         }
 
-        Booking.BookingStatus status = Booking.BookingStatus.valueOf(statusStr.toUpperCase());
-        booking.setStatus(status);
+        try {
+            Booking.BookingStatus status = Booking.BookingStatus.valueOf(statusStr.toUpperCase());
+            booking.setStatus(status);
 
-        // Nếu Confirm -> Tạo link Google Meet (Giả lập)
-        if (status == Booking.BookingStatus.Confirmed) {
-            booking.setMeetingLink("https://meet.google.com/gen-link-" + booking.getId());
+            if (status == Booking.BookingStatus.Confirmed) {
+                booking.setMeetingLink("https://meet.google.com/gen-link-" + booking.getId());
+            }
+        } catch (IllegalArgumentException e) {
+            throw new ForbiddenException("Invalid status: " + statusStr);
         }
 
         return bookingRepository.save(booking);

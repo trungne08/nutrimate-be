@@ -2,6 +2,9 @@ package com.nutrimate.service;
 
 import com.nutrimate.dto.ForumDTO;
 import com.nutrimate.entity.*;
+import com.nutrimate.exception.BadRequestException;
+import com.nutrimate.exception.ForbiddenException;
+import com.nutrimate.exception.ResourceNotFoundException;
 import com.nutrimate.repository.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -27,7 +30,7 @@ public class ForumService {
     private final UserRepository userRepository;
     private final FileUploadService fileUploadService;
 
-    // 10.1 Lấy Newsfeed
+    // 10.1 Get Newsfeed
     public Page<ForumDTO.PostResponse> getNewsFeed(String currentUserId, Pageable pageable) {
         Page<Post> posts = postRepository.findAllByOrderByCreatedAtDesc(pageable);
         
@@ -39,10 +42,10 @@ public class ForumService {
         return new PageImpl<>(dtos, pageable, posts.getTotalElements());
     }
 
-    // 10.2 Xem chi tiết bài viết + Comments
+    // 10.2 Get Post Detail
     public ForumDTO.PostDetailResponse getPostDetail(String currentUserId, String postId) {
         Post post = postRepository.findById(postId)
-                .orElseThrow(() -> new RuntimeException("Post not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Post not found (ID: " + postId + ")"));
         
         boolean isLiked = currentUserId != null && likeRepository.existsByUserIdAndPostId(currentUserId, postId);
         
@@ -55,21 +58,22 @@ public class ForumService {
                 .build();
     }
 
-    // 10.3 Đăng bài
+    // 10.3 Create Post
     @Transactional
     public ForumDTO.PostResponse createPost(String userId, String content, MultipartFile file) {
-        User user = userRepository.findById(userId).orElseThrow();
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+        
         Post post = new Post();
         post.setUser(user);
         post.setContent(content);
         
-        // Xử lý upload ảnh nếu có
         if (file != null && !file.isEmpty()) {
             try {
                 String url = fileUploadService.uploadFile(file);
                 post.setImageUrl(url);
             } catch (IOException e) {
-                throw new RuntimeException("Lỗi upload ảnh: " + e.getMessage());
+                throw new BadRequestException("Image upload failed: " + e.getMessage());
             }
         }
         
@@ -79,84 +83,80 @@ public class ForumService {
         return mapToPostDTO(post, false);
     }
 
-    // 10.4 Sửa bài (Chỉ chủ bài viết)
+    // 10.4 Update Post
     @Transactional
     public ForumDTO.PostResponse updatePost(String userId, String postId, String content, MultipartFile file) {
-        Post post = postRepository.findById(postId).orElseThrow(() -> new RuntimeException("Post not found"));
+        Post post = postRepository.findById(postId)
+                .orElseThrow(() -> new ResourceNotFoundException("Post not found"));
         
-        // Check quyền: Chỉ chủ bài viết mới được sửa
         if (!post.getUser().getId().equals(userId)) {
-            throw new RuntimeException("Unauthorized: You are not the author");
+            throw new ForbiddenException("You are not authorized to edit this post");
         }
 
-        // Cập nhật nội dung text
         post.setContent(content);
         
-        // Cập nhật ảnh (Nếu có gửi file mới lên thì thay thế ảnh cũ)
         if (file != null && !file.isEmpty()) {
             try {
                 String url = fileUploadService.uploadFile(file);
                 post.setImageUrl(url);
             } catch (IOException e) {
-                throw new RuntimeException("Lỗi upload ảnh cập nhật: " + e.getMessage());
+                throw new BadRequestException("Image upload failed during update: " + e.getMessage());
             }
         }
-        // Lưu ý: Nếu user không gửi file (file == null), ta giữ nguyên ảnh cũ (không xóa).
 
         post.setUpdatedAt(LocalDateTime.now());
         
         return mapToPostDTO(postRepository.save(post), likeRepository.existsByUserIdAndPostId(userId, postId));
     }
 
-    // 10.5 Xóa bài (Chỉ chủ bài viết)
+    // 10.5 Delete Post
     @Transactional
     public void deletePost(String userId, String postId) {
-        Post post = postRepository.findById(postId).orElseThrow(() -> new RuntimeException("Post not found"));
+        Post post = postRepository.findById(postId)
+                .orElseThrow(() -> new ResourceNotFoundException("Post not found"));
+        
         if (!post.getUser().getId().equals(userId)) {
-            throw new RuntimeException("Unauthorized");
+            throw new ForbiddenException("You are not authorized to delete this post");
         }
+        
         postRepository.delete(post);
     }
 
-    // 11.1 ADMIN: Xóa bài vi phạm (hard delete)
+    // 11.1 ADMIN: Delete Post
     @Transactional
     public void adminDeletePost(String postId) {
         Post post = postRepository.findById(postId)
-                .orElseThrow(() -> new RuntimeException("Post not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Post not found"));
         postRepository.delete(post);
     }
 
-    // 11.2 ADMIN: Ẩn bài viết (soft delete - không xóa hẳn)
+    // 11.2 ADMIN: Hide Post
     @Transactional
     public ForumDTO.PostResponse adminHidePost(String postId) {
         Post post = postRepository.findById(postId)
-                .orElseThrow(() -> new RuntimeException("Post not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Post not found"));
 
-        // Đánh dấu là đã bị ẩn bởi Admin bằng cách thay nội dung,
-        // giữ lại record để không mất lịch sử / thống kê.
-        post.setContent("[Hidden by admin due to policy violation]");
+        post.setContent("[Content hidden by Admin due to community guidelines violation]");
         post.setImageUrl(null);
         post.setUpdatedAt(LocalDateTime.now());
 
-        Post saved = postRepository.save(post);
-        // isLikedByCurrentUser không quan trọng trong ngữ cảnh Admin
-        return mapToPostDTO(saved, false);
+        return mapToPostDTO(postRepository.save(post), false);
     }
 
-    // 10.6 Thả tim / Bỏ tim (Toggle)
+    // 10.6 Toggle Like
     @Transactional
     public void toggleLike(String userId, String postId) {
-        Post post = postRepository.findById(postId).orElseThrow(() -> new RuntimeException("Post not found"));
+        Post post = postRepository.findById(postId)
+                .orElseThrow(() -> new ResourceNotFoundException("Post not found"));
         
         Optional<PostLike> existingLike = likeRepository.findByUserIdAndPostId(userId, postId);
         
         if (existingLike.isPresent()) {
-            // Đã like -> Xóa like (Unlike)
             likeRepository.delete(existingLike.get());
             post.setLikeCount(Math.max(0, post.getLikeCount() - 1));
         } else {
-            // Chưa like -> Tạo like
-            User user = userRepository.findById(userId).orElseThrow();
+            User user = userRepository.findById(userId)
+                    .orElseThrow(() -> new ResourceNotFoundException("User not found"));
             PostLike newLike = new PostLike();
             newLike.setPost(post);
             newLike.setUser(user);
@@ -166,64 +166,62 @@ public class ForumService {
         postRepository.save(post);
     }
 
-    // 10.7 Viết bình luận
+    // 10.7 Add Comment
     @Transactional
     public ForumDTO.CommentResponse addComment(String userId, String postId, String content, MultipartFile file) {
-        User user = userRepository.findById(userId).orElseThrow();
-        Post post = postRepository.findById(postId).orElseThrow(() -> new RuntimeException("Post not found"));
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+        Post post = postRepository.findById(postId)
+                .orElseThrow(() -> new ResourceNotFoundException("Post not found"));
 
         Comment comment = new Comment();
         comment.setPost(post);
         comment.setUser(user);
         comment.setContent(content);
         
-        // Xử lý upload ảnh comment
         if (file != null && !file.isEmpty()) {
             try {
                 String url = fileUploadService.uploadFile(file);
                 comment.setImageUrl(url);
             } catch (IOException e) {
-                throw new RuntimeException("Lỗi upload ảnh comment: " + e.getMessage());
+                throw new BadRequestException("Comment image upload failed: " + e.getMessage());
             }
         }
         
         commentRepository.save(comment);
 
-        // Update count
         post.setCommentCount(post.getCommentCount() + 1);
         postRepository.save(post);
 
         return mapToCommentDTO(comment);
     }
 
-    // 10.8 Xóa bình luận (chỉ chủ comment)
+    // 10.8 Delete Comment
     @Transactional
     public void deleteComment(String userId, String commentId) {
         Comment comment = commentRepository.findById(commentId)
-                .orElseThrow(() -> new RuntimeException("Comment not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Comment not found"));
 
         if (!comment.getUser().getId().equals(userId)) {
-            throw new RuntimeException("Unauthorized");
+            throw new ForbiddenException("You are not authorized to delete this comment");
         }
         
         Post post = comment.getPost();
         commentRepository.delete(comment);
         
-        // Update count
         post.setCommentCount(Math.max(0, post.getCommentCount() - 1));
         postRepository.save(post);
     }
 
-    // 11.3 ADMIN: Xóa bình luận toxic / spam
+    // 11.3 ADMIN: Delete Comment
     @Transactional
     public void adminDeleteComment(String commentId) {
         Comment comment = commentRepository.findById(commentId)
-                .orElseThrow(() -> new RuntimeException("Comment not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Comment not found"));
 
         Post post = comment.getPost();
         commentRepository.delete(comment);
 
-        // Cập nhật lại số comment của bài viết
         post.setCommentCount(Math.max(0, post.getCommentCount() - 1));
         postRepository.save(post);
     }

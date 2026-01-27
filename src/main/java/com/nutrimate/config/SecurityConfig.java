@@ -9,7 +9,6 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
-import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.web.cors.CorsConfigurationSource;
 
@@ -41,7 +40,8 @@ public class SecurityConfig {
         http
             // Cấu hình CORS
             .cors(cors -> cors.configurationSource(corsConfigurationSource))
-            .csrf(AbstractHttpConfigurer::disable)
+            // Tắt CSRF để dễ test
+            .csrf(csrf -> csrf.disable())
             
             // Cấu hình authorization
             .authorizeHttpRequests(auth -> auth
@@ -59,7 +59,7 @@ public class SecurityConfig {
                 // Các trang khác yêu cầu xác thực
                 .anyRequest().authenticated()
             )
-            .oauth2ResourceServer(oauth2 -> oauth2.jwt(jwt -> {}))
+            
             // Cấu hình OAuth2 Login
             .oauth2Login(oauth2 -> oauth2
                 .userInfoEndpoint(userInfo -> {
