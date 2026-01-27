@@ -5,7 +5,7 @@ import lombok.Data;
 import java.math.BigDecimal;
 
 @Entity
-@Table(name = "Expert_Wallets")
+@Table(name = "`Expert_Wallets`")
 @Data
 public class ExpertWallet {
     

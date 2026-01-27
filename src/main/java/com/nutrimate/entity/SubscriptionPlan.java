@@ -5,7 +5,7 @@ import lombok.Data;
 import java.math.BigDecimal;
 
 @Entity
-@Table(name = "Subscription_Plans")
+@Table(name = "`Subscription_Plans`")
 @Data
 public class SubscriptionPlan {
     

@@ -5,7 +5,7 @@ import lombok.Data;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "Comments")
+@Table(name = "`Comments`") // Dùng backtick để match đúng bảng Comments trong MySQL, tránh bị hạ thành 'comments'
 @Data
 public class Comment {
     @Id

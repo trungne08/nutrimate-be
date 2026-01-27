@@ -6,7 +6,7 @@ import java.time.LocalDate;
 import java.util.List;
 
 @Entity
-@Table(name = "Daily_Logs")
+@Table(name = "`Daily_Logs`")
 @Data
 public class DailyLog {
     
