@@ -7,7 +7,6 @@ import lombok.Data;
 @Table(name = "Meal_Logs")
 @Data
 public class MealLog {
-    
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     @Column(name = "meal_log_id")
@@ -21,8 +20,12 @@ public class MealLog {
     @JoinColumn(name = "recipe_id")
     private Recipe recipe;
 
-    @Column(name = "meal_name")
-    private String mealName; // Dùng khi nhập tay món ngoài
+    @Enumerated(EnumType.STRING)
+    @Column(name = "meal_type")
+    private MealType mealType; // Sáng, Trưa, Tối...
 
-    private Integer calories;
+    private Double amount; // Số lượng (VD: 1.5 suất)
+
+    @Column(name = "calories_consumed")
+    private Integer caloriesConsumed; // Calo thực nạp (= recipe.calories * amount)
 }
