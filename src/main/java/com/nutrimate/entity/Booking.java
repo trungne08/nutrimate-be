@@ -6,7 +6,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "Bookings")
+@Table(name = "`Bookings`") // Dùng backtick để giữ nguyên chữ hoa trên MySQL (trùng với bảng Bookings hiện tại)
 @Data
 public class Booking {
     
