@@ -24,6 +24,9 @@ public class Comment {
     @Column(columnDefinition = "TEXT")
     private String content;
 
+    @Column(name = "image_url")
+    private String imageUrl;
+
     @Column(name = "created_at", nullable = false) // DB đang NOT NULL nên model cũng phải non-null để validate không lỗi
     private LocalDateTime createdAt = LocalDateTime.now();
 }

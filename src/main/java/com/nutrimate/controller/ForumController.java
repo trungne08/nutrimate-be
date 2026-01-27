@@ -11,6 +11,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.MediaType;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.core.oidc.user.OidcUser;
@@ -64,26 +66,30 @@ public class ForumController {
     }
 
     // 10.3 POST /api/forum/posts (Create)
-    @Operation(summary = "Create new post")
-    @PostMapping("/posts")
+    @Operation(summary = "Create new post (Text + Image)")
+    @PostMapping(value = "/posts", consumes = MediaType.MULTIPART_FORM_DATA_VALUE) // 👈 Quan trọng
     @PreAuthorize("hasRole('MEMBER')")
     public ResponseEntity<ForumDTO.PostResponse> createPost(
-            @RequestBody ForumDTO.PostRequest req,
+            @RequestParam("content") String content, // Nhận text
+            @RequestParam(value = "file", required = false) MultipartFile file, // Nhận file (không bắt buộc)
             @Parameter(hidden = true) @AuthenticationPrincipal OidcUser oidcUser,
             @Parameter(hidden = true) @AuthenticationPrincipal OAuth2User oauth2User) {
-        return ResponseEntity.ok(forumService.createPost(getCurrentUserId(oidcUser, oauth2User), req));
+        
+        return ResponseEntity.ok(forumService.createPost(getCurrentUserId(oidcUser, oauth2User), content, file));
     }
 
     // 10.4 PUT /api/forum/posts/{id} (Update)
-    @Operation(summary = "Update post (Owner only)")
-    @PutMapping("/posts/{id}")
+    @Operation(summary = "Update post (Text + Image)")
+    @PutMapping(value = "/posts/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE) // 👈 Quan trọng
     @PreAuthorize("hasRole('MEMBER')")
     public ResponseEntity<ForumDTO.PostResponse> updatePost(
             @PathVariable String id,
-            @RequestBody ForumDTO.PostRequest req,
+            @RequestParam("content") String content, // Nhận text mới
+            @RequestParam(value = "file", required = false) MultipartFile file, // Nhận file ảnh mới (không bắt buộc)
             @Parameter(hidden = true) @AuthenticationPrincipal OidcUser oidcUser,
             @Parameter(hidden = true) @AuthenticationPrincipal OAuth2User oauth2User) {
-        return ResponseEntity.ok(forumService.updatePost(getCurrentUserId(oidcUser, oauth2User), id, req));
+        
+        return ResponseEntity.ok(forumService.updatePost(getCurrentUserId(oidcUser, oauth2User), id, content, file));
     }
 
     // 10.5 DELETE /api/forum/posts/{id} (Delete)
@@ -111,15 +117,17 @@ public class ForumController {
     }
 
     // 10.7 POST /api/forum/posts/{id}/comments (Add Comment)
-    @Operation(summary = "Add comment")
-    @PostMapping("/posts/{id}/comments")
+    @Operation(summary = "Add comment (Text + Image)")
+    @PostMapping(value = "/posts/{id}/comments", consumes = MediaType.MULTIPART_FORM_DATA_VALUE) // 👈 Quan trọng
     @PreAuthorize("hasRole('MEMBER')")
     public ResponseEntity<ForumDTO.CommentResponse> addComment(
             @PathVariable String id,
-            @RequestBody ForumDTO.CommentRequest req,
+            @RequestParam("content") String content, // Nhận text
+            @RequestParam(value = "file", required = false) MultipartFile file, // Nhận file
             @Parameter(hidden = true) @AuthenticationPrincipal OidcUser oidcUser,
             @Parameter(hidden = true) @AuthenticationPrincipal OAuth2User oauth2User) {
-        return ResponseEntity.ok(forumService.addComment(getCurrentUserId(oidcUser, oauth2User), id, req));
+        
+        return ResponseEntity.ok(forumService.addComment(getCurrentUserId(oidcUser, oauth2User), id, content, file));
     }
 
     // 10.8 DELETE /api/forum/comments/{id} (Delete Comment)
