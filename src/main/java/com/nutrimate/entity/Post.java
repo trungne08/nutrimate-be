@@ -31,6 +31,8 @@ public class Post {
     private LocalDateTime updatedAt = LocalDateTime.now();
 
     // Cache số lượng để query cho nhanh (Denormalization)
+    @Column(name = "like_count", nullable = false)
     private Integer likeCount = 0;
+    @Column(name = "comment_count", nullable = false)
     private Integer commentCount = 0;
 }

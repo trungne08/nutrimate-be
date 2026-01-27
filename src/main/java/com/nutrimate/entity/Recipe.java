@@ -13,7 +13,10 @@ public class Recipe {
     @Column(name = "recipe_id")
     private String id;
 
+    @Column(name = "title", nullable = false)
     private String title;
+
+    @Column(name = "description", nullable = false)
     private String description;
     
     @Column(columnDefinition = "TEXT")

@@ -14,17 +14,17 @@ public class UserChallenge {
     private String id;
 
     @ManyToOne
-    @JoinColumn(name = "user_id")
+    @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
     @ManyToOne
-    @JoinColumn(name = "challenge_id")
+    @JoinColumn(name = "challenge_id", nullable = false)
     private Challenge challenge;
 
-    @Column(name = "join_date")
+    @Column(name = "join_date", nullable = false)
     private LocalDate joinDate;
 
-    @Column(name = "days_completed")
+    @Column(name = "days_completed", nullable = false)
     private Integer daysCompleted = 0; // Tiến độ (VD: Đã hoàn thành 3/7 ngày)
 
     @Enumerated(EnumType.STRING)

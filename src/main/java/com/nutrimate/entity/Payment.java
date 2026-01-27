@@ -20,16 +20,17 @@ public class Payment {
     private User user;
 
     @Column(name = "related_id", nullable = false)
-    private Long relatedId; // ID của Booking hoặc Subscription
+    private String relatedId; // ID của Booking hoặc Subscription
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "payment_type")
+    @Column(name = "payment_type", nullable = false)
     private PaymentType paymentType;
 
+    @Column(name = "amount", nullable = false)
     private BigDecimal amount;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "payment_method")
+    @Column(name = "payment_method", nullable = false)
     private PaymentMethod paymentMethod;
 
     @Enumerated(EnumType.STRING)

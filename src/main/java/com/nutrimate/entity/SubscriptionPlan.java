@@ -17,26 +17,28 @@ public class SubscriptionPlan {
     @Column(name = "plan_name", nullable = false)
     private String planName;
 
+    @Column(name = "price", nullable = false)
     private BigDecimal price;
 
-    @Column(name = "duration_days")
+    @Column(name = "duration_days", nullable = false)
     private Integer durationDays;
 
     // --- Feature Flags (Quyền lợi) ---
-    @Column(name = "can_access_basic_content")
+    @Column(name = "can_access_basic_content", nullable = false)
     private Boolean canAccessBasicContent;
 
-    @Column(name = "can_use_ai_coach")
+    @Column(name = "can_use_ai_coach", nullable = false)
     private Boolean canUseAiCoach;
 
-    @Column(name = "is_expert_plan")
+    @Column(name = "is_expert_plan", nullable = false)
     private Boolean isExpertPlan;
 
-    @Column(name = "free_sessions_per_cycle")
+    @Column(name = "free_sessions_per_cycle", nullable = false)
     private Integer freeSessionsPerCycle;
 
+    @Column(name = "description", nullable = false)
     private String description;
     
-    @Column(name = "is_active")
+    @Column(name = "is_active", nullable = false)
     private Boolean isActive;
 }

@@ -22,16 +22,16 @@ public class UserSubscription {
     @JoinColumn(name = "plan_id", nullable = false)
     private SubscriptionPlan plan;
 
-    @Column(name = "start_date")
+    @Column(name = "start_date", nullable = false)
     private LocalDateTime startDate;
 
-    @Column(name = "end_date")
+    @Column(name = "end_date", nullable = false)
     private LocalDateTime endDate;
 
     @Enumerated(EnumType.STRING)
     private SubscriptionStatus status; // Active, Expired, Cancelled
 
-    @Column(name = "auto_renew")
+    @Column(name = "auto_renew", nullable = false)
     private Boolean autoRenew;
 
     public enum SubscriptionStatus {

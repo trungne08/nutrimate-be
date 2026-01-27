@@ -13,7 +13,7 @@ public class MealLog {
     private String id;
 
     @ManyToOne
-    @JoinColumn(name = "log_id")
+    @JoinColumn(name = "log_id", nullable = false)
     private DailyLog dailyLog;
 
     @ManyToOne
