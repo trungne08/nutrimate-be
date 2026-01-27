@@ -8,7 +8,6 @@ import java.time.LocalDate;
 @Table(name = "User_Challenges")
 @Data
 public class UserChallenge {
-    
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     @Column(name = "uc_id")
@@ -25,15 +24,11 @@ public class UserChallenge {
     @Column(name = "join_date")
     private LocalDate joinDate;
 
+    @Column(name = "days_completed")
+    private Integer daysCompleted = 0; // Tiến độ (VD: Đã hoàn thành 3/7 ngày)
+
     @Enumerated(EnumType.STRING)
     private ChallengeStatus status;
 
-    public enum ChallengeStatus {
-        IN_PROGRESS("In Progress"),
-        COMPLETED("Completed"),
-        FAILED("Failed");
-        
-        private String value;
-        ChallengeStatus(String value) { this.value = value; }
-    }
+    public enum ChallengeStatus { IN_PROGRESS, COMPLETED, FAILED }
 }

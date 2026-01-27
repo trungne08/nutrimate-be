@@ -7,7 +7,6 @@ import lombok.Data;
 @Table(name = "Challenges")
 @Data
 public class Challenge {
-
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     @Column(name = "challenge_id")
@@ -17,5 +16,10 @@ public class Challenge {
     private String description;
     
     @Column(name = "duration_days")
-    private Integer durationDays;
+    private Integer durationDays; // VD: 7 ngày, 30 ngày
+    
+    @Enumerated(EnumType.STRING)
+    private ChallengeLevel level; // EASY, MEDIUM, HARD
+
+    public enum ChallengeLevel { EASY, MEDIUM, HARD }
 }

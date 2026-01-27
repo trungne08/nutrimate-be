@@ -1,17 +1,32 @@
 package com.nutrimate.dto;
 
+import com.nutrimate.entity.Challenge;
+import jakarta.validation.constraints.NotNull;
 import lombok.Data;
-import java.time.LocalDate;
 
 @Data
 public class ChallengeDTO {
-    private String id;
-    private String title;
-    private String description;
-    private Integer durationDays;
-    
-    // Dành cho response khi user đang tham gia
-    private String status; // In Progress / Completed
-    private LocalDate joinDate;
-    private Integer daysCompleted; // Tính toán từ joinDate
+    // Request tạo mới
+    @Data
+    public static class CreateRequest {
+        @NotNull private String title;
+        private String description;
+        @NotNull private Integer durationDays;
+        private Challenge.ChallengeLevel level;
+    }
+
+    // Response cho User (Kèm tiến độ nếu đã tham gia)
+    @Data
+    public static class Response {
+        private String id;
+        private String title;
+        private String description;
+        private Integer durationDays;
+        private String level;
+        
+        // Thông tin riêng của User (nếu có)
+        private boolean isJoined;
+        private Integer daysCompleted;
+        private String status;
+    }
 }
