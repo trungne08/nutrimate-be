@@ -26,7 +26,9 @@ import org.springframework.security.oauth2.client.annotation.RegisteredOAuth2Aut
 import org.springframework.security.oauth2.core.oidc.user.OidcUser;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
+import jakarta.servlet.http.HttpServletRequest;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
@@ -73,9 +75,30 @@ public class AuthController {
             )
     })
     @GetMapping("/login")
-    public ResponseEntity<Map<String, String>> getLoginUrl() {
+    public ResponseEntity<Map<String, String>> getLoginUrl(HttpServletRequest request) {
         Map<String, String> response = new HashMap<>();
-        response.put("loginUrl", backendUrl + "/oauth2/authorization/cognito");
+        
+        // Tự động detect URL từ request hiện tại (Railway/Render/localhost)
+        String baseUrl;
+        try {
+            // Dùng ServletUriComponentsBuilder để tự động detect scheme, host, port từ request
+            baseUrl = ServletUriComponentsBuilder.fromRequestUri(request)
+                    .replacePath(null) // Xóa path hiện tại
+                    .scheme(request.getScheme()) // Giữ nguyên scheme (http/https)
+                    .build()
+                    .toUriString();
+        } catch (Exception e) {
+            // Fallback về backendUrl từ config nếu không detect được
+            baseUrl = backendUrl;
+        }
+        
+        // Đảm bảo dùng HTTPS cho production (Railway luôn dùng HTTPS)
+        if (baseUrl.startsWith("http://") && !baseUrl.contains("localhost")) {
+            baseUrl = baseUrl.replace("http://", "https://");
+        }
+        
+        String loginUrl = baseUrl + "/oauth2/authorization/cognito";
+        response.put("loginUrl", loginUrl);
         response.put("message", "Redirect to this URL to start login");
         return ResponseEntity.ok(response);
     }
@@ -176,9 +199,27 @@ public class AuthController {
             )
     })
     @PostMapping("/logout")
-    public ResponseEntity<Map<String, String>> logout() {
+    public ResponseEntity<Map<String, String>> logout(HttpServletRequest request) {
         Map<String, String> response = new HashMap<>();
-        response.put("logoutUrl", backendUrl + "/logout");
+        
+        // Tự động detect URL từ request hiện tại (Railway/Render/localhost)
+        String baseUrl;
+        try {
+            baseUrl = ServletUriComponentsBuilder.fromRequestUri(request)
+                    .replacePath(null)
+                    .scheme(request.getScheme())
+                    .build()
+                    .toUriString();
+        } catch (Exception e) {
+            baseUrl = backendUrl;
+        }
+        
+        // Đảm bảo dùng HTTPS cho production
+        if (baseUrl.startsWith("http://") && !baseUrl.contains("localhost")) {
+            baseUrl = baseUrl.replace("http://", "https://");
+        }
+        
+        response.put("logoutUrl", baseUrl + "/logout");
         response.put("redirectUrl", frontendUrl);
         response.put("message", "Redirect to logoutUrl to logout, then will redirect to frontend");
         return ResponseEntity.ok(response);
