@@ -6,7 +6,7 @@ import lombok.Data;
 import org.springframework.web.multipart.MultipartFile;
 
 @Data
-@Schema(description = "Request DTO for updating user profile")
+// Không dùng @Schema ở class level khi có MultipartFile để tránh lỗi Swagger
 public class UpdateProfileRequest {
     
     @Size(max = 100, message = "Full name must not exceed 100 characters")
@@ -21,7 +21,7 @@ public class UpdateProfileRequest {
     @Schema(description = "Phone number", example = "+84901234567", maxLength = 15)
     private String phoneNumber;
     
-    @Schema(description = "Avatar image file (upload to Cloudinary)", type = "string", format = "binary")
+    // MultipartFile không cần @Schema vì Swagger tự động detect cho multipart/form-data
     private MultipartFile avatarFile;
     
     @Size(max = 255, message = "Avatar URL must not exceed 255 characters")

@@ -84,11 +84,11 @@
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-oauth2-resource-server</artifactId>
 		</dependency>
-		<!-- SpringDoc OpenAPI (Swagger) -->
+		<!-- SpringDoc OpenAPI (Swagger) - Version 3.0.1 tương thích với Spring Boot 4.0.2 -->
 		<dependency>
 			<groupId>org.springdoc</groupId>
 			<artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
-			<version>2.5.0</version>
+			<version>3.0.1</version>
 		</dependency>
 	</dependencies>
 
