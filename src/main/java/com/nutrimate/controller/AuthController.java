@@ -5,6 +5,7 @@ import com.nutrimate.entity.HealthProfile;
 import com.nutrimate.entity.User;
 import com.nutrimate.repository.HealthProfileRepository;
 import com.nutrimate.repository.UserRepository;
+import com.nutrimate.service.FileUploadService;
 import org.springframework.beans.factory.annotation.Value;
 import jakarta.validation.Valid;
 import io.swagger.v3.oas.annotations.Operation;
@@ -15,6 +16,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -25,6 +27,7 @@ import org.springframework.security.oauth2.core.oidc.user.OidcUser;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.web.bind.annotation.*;
 
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -37,17 +40,20 @@ public class AuthController {
     private final UserRepository userRepository;
     private final OAuth2AuthorizedClientService authorizedClientService;
     private final HealthProfileRepository healthProfileRepository;
+    private final FileUploadService fileUploadService;
     private final String backendUrl;
     private final String frontendUrl;
     
     public AuthController(UserRepository userRepository, 
                          OAuth2AuthorizedClientService authorizedClientService,
                          HealthProfileRepository healthProfileRepository,
+                         FileUploadService fileUploadService,
                          @Value("${app.backend.url:http://localhost:8080}") String backendUrl,
                          @Value("${app.frontend.url:http://localhost:5173}") String frontendUrl) {
         this.userRepository = userRepository;
         this.authorizedClientService = authorizedClientService;
         this.healthProfileRepository = healthProfileRepository;
+        this.fileUploadService = fileUploadService;
         this.backendUrl = backendUrl;
         this.frontendUrl = frontendUrl;
     }
@@ -406,8 +412,10 @@ public class AuthController {
     
     @Operation(
             summary = "Update user profile",
-            description = "Updates the authenticated user's profile information (fullName, username, phoneNumber, avatarUrl). " +
+            description = "Updates the authenticated user's profile information (fullName, username, phoneNumber, avatar). " +
                          "All fields are optional - only provided fields will be updated. " +
+                         "Avatar can be uploaded as a file (multipart/form-data) or provided as URL. " +
+                         "If avatarFile is provided, it will be uploaded to Cloudinary and the URL will be saved. " +
                          "User can only update their own profile. Requires authentication."
     )
     @ApiResponses(value = {
@@ -422,7 +430,7 @@ public class AuthController {
             ),
             @ApiResponse(
                     responseCode = "400",
-                    description = "Bad Request - Validation error"
+                    description = "Bad Request - Validation error or upload failed"
             ),
             @ApiResponse(
                     responseCode = "401",
@@ -433,11 +441,11 @@ public class AuthController {
                     description = "User not found in database"
             )
     })
-    @PutMapping("/profile")
+    @PutMapping(value = "/profile", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<Map<String, Object>> updateProfile(
             @Parameter(hidden = true) @AuthenticationPrincipal OidcUser oidcUser,
             @Parameter(hidden = true) @AuthenticationPrincipal OAuth2User oauth2User,
-            @Valid @RequestBody UpdateProfileRequest request) {
+            @Valid @ModelAttribute UpdateProfileRequest request) {
         
         Map<String, Object> response = new HashMap<>();
         
@@ -475,8 +483,20 @@ public class AuthController {
             user.setPhoneNumber(request.getPhoneNumber().trim());
         }
         
-        if (request.getAvatarUrl() != null && !request.getAvatarUrl().trim().isEmpty()) {
-            user.setAvatarUrl(request.getAvatarUrl().trim());
+        // Xử lý avatar: ưu tiên upload file, nếu không có file thì dùng URL
+        try {
+            if (request.getAvatarFile() != null && !request.getAvatarFile().isEmpty()) {
+                // Upload file lên Cloudinary
+                String avatarUrl = fileUploadService.uploadFile(request.getAvatarFile());
+                user.setAvatarUrl(avatarUrl);
+            } else if (request.getAvatarUrl() != null && !request.getAvatarUrl().trim().isEmpty()) {
+                // Dùng URL trực tiếp (backward compatible)
+                user.setAvatarUrl(request.getAvatarUrl().trim());
+            }
+        } catch (IOException e) {
+            response.put("success", false);
+            response.put("message", "Error uploading avatar: " + e.getMessage());
+            return ResponseEntity.status(400).body(response);
         }
         
         // Lưu vào database

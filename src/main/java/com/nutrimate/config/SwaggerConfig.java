@@ -38,11 +38,18 @@ public class SwaggerConfig {
         
         // Thêm server từ biến môi trường nếu có (backup)
         if (backendUrl != null && !backendUrl.isEmpty() && !backendUrl.equals("http://localhost:8080")) {
-            String productionUrl = backendUrl;
-            // Đảm bảo dùng HTTPS cho production
+            String productionUrl = backendUrl.trim();
+
+            // Nếu thiếu schema (ví dụ: nutrimate-api.up.railway.app) thì tự thêm https://
+            if (!productionUrl.startsWith("http://") && !productionUrl.startsWith("https://")) {
+                productionUrl = "https://" + productionUrl;
+            }
+
+            // Đảm bảo dùng HTTPS cho production nếu lỡ cấu hình http://
             if (productionUrl.startsWith("http://") && !productionUrl.contains("localhost")) {
                 productionUrl = productionUrl.replace("http://", "https://");
             }
+
             servers.add(new Server()
                     .url(productionUrl)
                     .description("Production Server (from config)"));
