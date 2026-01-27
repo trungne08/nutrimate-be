@@ -414,9 +414,35 @@ public class AuthController {
             response.put("access_token", authorizedClient.getAccessToken().getTokenValue());
             response.put("token_type", "Bearer");
             
-            // Nếu có ID token (OIDC)
-            if (authorizedClient.getAccessToken().getTokenValue() != null) {
+            // Thông tin về thời gian hết hạn
+            if (authorizedClient.getAccessToken().getExpiresAt() != null) {
                 response.put("expires_at", authorizedClient.getAccessToken().getExpiresAt());
+                
+                // Tính số giây còn lại (expires_in)
+                long expiresInSeconds = java.time.Instant.now()
+                        .until(authorizedClient.getAccessToken().getExpiresAt(), java.time.temporal.ChronoUnit.SECONDS);
+                response.put("expires_in", expiresInSeconds);
+                
+                // Thông tin dễ đọc hơn
+                if (expiresInSeconds > 0) {
+                    long minutes = expiresInSeconds / 60;
+                    long hours = minutes / 60;
+                    if (hours > 0) {
+                        response.put("expires_in_human", hours + " giờ " + (minutes % 60) + " phút");
+                    } else {
+                        response.put("expires_in_human", minutes + " phút");
+                    }
+                } else {
+                    response.put("expires_in_human", "Token đã hết hạn");
+                }
+            }
+            
+            // Lấy refresh token nếu có
+            if (authorizedClient.getRefreshToken() != null) {
+                response.put("refresh_token", authorizedClient.getRefreshToken().getTokenValue());
+                if (authorizedClient.getRefreshToken().getExpiresAt() != null) {
+                    response.put("refresh_token_expires_at", authorizedClient.getRefreshToken().getExpiresAt());
+                }
             }
             
             // Lấy ID token nếu có (từ OidcUser)
@@ -424,10 +450,14 @@ public class AuthController {
                 OidcUser oidcUser = (OidcUser) authentication.getPrincipal();
                 if (oidcUser.getIdToken() != null) {
                     response.put("id_token", oidcUser.getIdToken().getTokenValue());
+                    if (oidcUser.getIdToken().getExpiresAt() != null) {
+                        response.put("id_token_expires_at", oidcUser.getIdToken().getExpiresAt());
+                    }
                 }
             }
             
-            response.put("message", "Copy access_token và dán vào Swagger 'Authorize' button");
+            response.put("message", "Copy access_token và dán vào Swagger 'Authorize' button. Token sẽ hết hạn sau " + 
+                    (response.containsKey("expires_in_human") ? response.get("expires_in_human") : "một khoảng thời gian") + ".");
         } else {
             // Fallback: Lấy từ OidcUser nếu có
             if (authentication.getPrincipal() instanceof OidcUser) {
@@ -446,6 +476,84 @@ public class AuthController {
                 response.put("message", "Vui lòng đăng nhập tại: " + backendUrl + "/oauth2/authorization/cognito");
                 return ResponseEntity.status(401).body(response);
             }
+        }
+        
+        return ResponseEntity.ok(response);
+    }
+    
+    @Operation(
+            summary = "Refresh access token",
+            description = "Refreshes the access token using refresh token. Use this endpoint when access token expires. Requires authentication."
+    )
+    @ApiResponses(value = {
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "Token refreshed successfully",
+                    content = @Content(
+                            mediaType = "application/json",
+                            schema = @Schema(implementation = Map.class)
+                    )
+            ),
+            @ApiResponse(
+                    responseCode = "401",
+                    description = "Unauthorized - User not authenticated or refresh token expired"
+            )
+    })
+    @PostMapping("/token/refresh")
+    public ResponseEntity<Map<String, Object>> refreshToken(
+            @Parameter(hidden = true) Authentication authentication,
+            @Parameter(hidden = true) @RegisteredOAuth2AuthorizedClient("cognito") OAuth2AuthorizedClient authorizedClient) {
+        
+        Map<String, Object> response = new HashMap<>();
+        
+        // Kiểm tra authentication
+        if (authentication == null || !authentication.isAuthenticated()) {
+            response.put("error", "Chưa đăng nhập!");
+            response.put("message", "Vui lòng đăng nhập tại: " + backendUrl + "/oauth2/authorization/cognito");
+            return ResponseEntity.status(401).body(response);
+        }
+        
+        // Kiểm tra có refresh token không
+        if (authorizedClient == null || authorizedClient.getRefreshToken() == null) {
+            response.put("error", "Không có refresh token");
+            response.put("message", "Vui lòng đăng nhập lại để lấy refresh token mới");
+            return ResponseEntity.status(401).body(response);
+        }
+        
+        // Kiểm tra refresh token có hết hạn chưa
+        if (authorizedClient.getRefreshToken().getExpiresAt() != null) {
+            if (authorizedClient.getRefreshToken().getExpiresAt().isBefore(java.time.Instant.now())) {
+                response.put("error", "Refresh token đã hết hạn");
+                response.put("message", "Vui lòng đăng nhập lại");
+                return ResponseEntity.status(401).body(response);
+            }
+        }
+        
+        // Lấy access token mới (Spring Security sẽ tự động refresh nếu cần)
+        if (authorizedClient.getAccessToken() != null) {
+            response.put("access_token", authorizedClient.getAccessToken().getTokenValue());
+            response.put("token_type", "Bearer");
+            
+            if (authorizedClient.getAccessToken().getExpiresAt() != null) {
+                response.put("expires_at", authorizedClient.getAccessToken().getExpiresAt());
+                long expiresInSeconds = java.time.Instant.now()
+                        .until(authorizedClient.getAccessToken().getExpiresAt(), java.time.temporal.ChronoUnit.SECONDS);
+                response.put("expires_in", expiresInSeconds);
+                
+                long minutes = expiresInSeconds / 60;
+                long hours = minutes / 60;
+                if (hours > 0) {
+                    response.put("expires_in_human", hours + " giờ " + (minutes % 60) + " phút");
+                } else {
+                    response.put("expires_in_human", minutes + " phút");
+                }
+            }
+            
+            response.put("message", "Token đã được refresh thành công");
+        } else {
+            response.put("error", "Không thể refresh token");
+            response.put("message", "Vui lòng đăng nhập lại");
+            return ResponseEntity.status(401).body(response);
         }
         
         return ResponseEntity.ok(response);
