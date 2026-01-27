@@ -15,7 +15,7 @@ public class ExpertWallet {
     private String id;
 
     @OneToOne
-    @JoinColumn(name = "user_id")
+    @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
     private BigDecimal balance;

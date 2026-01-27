@@ -16,10 +16,10 @@ public class Payment {
     private String id;
 
     @ManyToOne
-    @JoinColumn(name = "user_id")
+    @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
-    @Column(name = "related_id")
+    @Column(name = "related_id", nullable = false)
     private Long relatedId; // ID của Booking hoặc Subscription
 
     @Enumerated(EnumType.STRING)

@@ -16,7 +16,7 @@ public class Post {
     private String id;
 
     @ManyToOne
-    @JoinColumn(name = "user_id")
+    @JoinColumn(name = "user_id", nullable = false)
     private User user; // Tác giả
 
     @Column(columnDefinition = "TEXT")
@@ -24,10 +24,10 @@ public class Post {
 
     private String imageUrl;
 
-    @Column(name = "created_at")
+    @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
 
-    @Column(name = "updated_at")
+    @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt = LocalDateTime.now();
 
     // Cache số lượng để query cho nhanh (Denormalization)

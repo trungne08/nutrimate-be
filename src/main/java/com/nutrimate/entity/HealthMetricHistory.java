@@ -17,7 +17,7 @@ public class HealthMetricHistory {
     @Column(name = "history_id")
     private String id;
 
-    @Column(name = "user_id")
+    @Column(name = "user_id", nullable = false)
     private String userId;
 
     @Column(name = "weight_kg")
