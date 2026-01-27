@@ -23,7 +23,7 @@ public class Booking {
     @JoinColumn(name = "expert_user_id")
     private User expert;
 
-    @Column(name = "booking_time")
+    @Column(name = "booking_time", nullable = false) // DB đang NOT NULL nên model phải non-null để pass validate
     private LocalDateTime bookingTime;
 
     // --- Logic giá ---
