@@ -4,7 +4,7 @@ import jakarta.persistence.*;
 import lombok.Data;
 
 @Entity
-@Table(name = "Challenges")
+@Table(name = "`Challenges`") // Dùng backtick để match đúng bảng Challenges trong MySQL, tránh bị hạ thành 'challenges'
 @Data
 public class Challenge {
     @Id
