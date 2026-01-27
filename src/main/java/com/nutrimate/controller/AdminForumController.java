@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/admin/forum")
-@Tag(name = "11. Admin Forum Management", description = "Admin moderation for posts & comments")
+@Tag(name = "Admin Forum Management", description = "Admin moderation for posts & comments")
 @RequiredArgsConstructor
 @PreAuthorize("hasRole('ADMIN')")
 public class AdminForumController {

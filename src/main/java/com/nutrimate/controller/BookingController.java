@@ -24,7 +24,7 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api") // Base path chung, cụ thể sẽ chia ở method
-@Tag(name = "5. Booking Management", description = "Booking APIs for Member, Expert & Admin")
+@Tag(name = "Booking Management", description = "Booking APIs for Member, Expert & Admin")
 @RequiredArgsConstructor
 public class BookingController {
 

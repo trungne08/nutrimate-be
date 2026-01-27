@@ -19,7 +19,7 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/forum")
-@Tag(name = "10. Community Forum", description = "Social features: Posts, Likes, Comments")
+@Tag(name = "Community Forum", description = "Social features: Posts, Likes, Comments")
 @RequiredArgsConstructor
 public class ForumController {
 

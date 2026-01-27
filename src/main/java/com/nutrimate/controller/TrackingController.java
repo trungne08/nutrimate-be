@@ -20,7 +20,7 @@ import java.time.LocalDate;
 
 @RestController
 @RequestMapping("/api/tracking")
-@Tag(name = "7. Tracking", description = "Food & Meal Logging APIs")
+@Tag(name = "Tracking", description = "Food & Meal Logging APIs")
 @RequiredArgsConstructor
 public class TrackingController {
 

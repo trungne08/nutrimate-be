@@ -13,7 +13,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/experts")
-@Tag(name = "5. Expert Profile", description = "Public APIs to find experts")
+@Tag(name = "Expert Profile", description = "Public APIs to find experts")
 @RequiredArgsConstructor
 public class ExpertController {
 

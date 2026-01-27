@@ -21,7 +21,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api")
-@Tag(name = "8. Community & Challenges", description = "Challenge APIs")
+@Tag(name = "Community & Challenges", description = "Challenge APIs")
 @RequiredArgsConstructor
 public class ChallengeController {
 
