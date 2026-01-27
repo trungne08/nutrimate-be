@@ -93,6 +93,31 @@ public class ForumService {
         postRepository.delete(post);
     }
 
+    // 11.1 ADMIN: Xóa bài vi phạm (hard delete)
+    @Transactional
+    public void adminDeletePost(String postId) {
+        Post post = postRepository.findById(postId)
+                .orElseThrow(() -> new RuntimeException("Post not found"));
+        postRepository.delete(post);
+    }
+
+    // 11.2 ADMIN: Ẩn bài viết (soft delete - không xóa hẳn)
+    @Transactional
+    public ForumDTO.PostResponse adminHidePost(String postId) {
+        Post post = postRepository.findById(postId)
+                .orElseThrow(() -> new RuntimeException("Post not found"));
+
+        // Đánh dấu là đã bị ẩn bởi Admin bằng cách thay nội dung,
+        // giữ lại record để không mất lịch sử / thống kê.
+        post.setContent("[Hidden by admin due to policy violation]");
+        post.setImageUrl(null);
+        post.setUpdatedAt(LocalDateTime.now());
+
+        Post saved = postRepository.save(post);
+        // isLikedByCurrentUser không quan trọng trong ngữ cảnh Admin
+        return mapToPostDTO(saved, false);
+    }
+
     // 10.6 Thả tim / Bỏ tim (Toggle)
     @Transactional
     public void toggleLike(String userId, String postId) {
@@ -135,7 +160,7 @@ public class ForumService {
         return mapToCommentDTO(comment);
     }
 
-    // 10.8 Xóa bình luận
+    // 10.8 Xóa bình luận (chỉ chủ comment)
     @Transactional
     public void deleteComment(String userId, String commentId) {
         Comment comment = commentRepository.findById(commentId)
@@ -149,6 +174,20 @@ public class ForumService {
         commentRepository.delete(comment);
         
         // Update count
+        post.setCommentCount(Math.max(0, post.getCommentCount() - 1));
+        postRepository.save(post);
+    }
+
+    // 11.3 ADMIN: Xóa bình luận toxic / spam
+    @Transactional
+    public void adminDeleteComment(String commentId) {
+        Comment comment = commentRepository.findById(commentId)
+                .orElseThrow(() -> new RuntimeException("Comment not found"));
+
+        Post post = comment.getPost();
+        commentRepository.delete(comment);
+
+        // Cập nhật lại số comment của bài viết
         post.setCommentCount(Math.max(0, post.getCommentCount() - 1));
         postRepository.save(post);
     }
