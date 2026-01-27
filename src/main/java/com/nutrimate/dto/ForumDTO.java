@@ -53,6 +53,7 @@ public class ForumDTO {
         private String authorAvatar;
         private String authorId;
         private String content;
+        private String imageUrl;
         private LocalDateTime createdAt;
     }
 }

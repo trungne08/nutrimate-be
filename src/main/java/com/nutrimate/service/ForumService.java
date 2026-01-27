@@ -9,7 +9,9 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -23,6 +25,7 @@ public class ForumService {
     private final CommentRepository commentRepository;
     private final PostLikeRepository likeRepository;
     private final UserRepository userRepository;
+    private final FileUploadService fileUploadService;
 
     // 10.1 Lấy Newsfeed
     public Page<ForumDTO.PostResponse> getNewsFeed(String currentUserId, Pageable pageable) {
@@ -54,30 +57,52 @@ public class ForumService {
 
     // 10.3 Đăng bài
     @Transactional
-    public ForumDTO.PostResponse createPost(String userId, ForumDTO.PostRequest req) {
+    public ForumDTO.PostResponse createPost(String userId, String content, MultipartFile file) {
         User user = userRepository.findById(userId).orElseThrow();
         Post post = new Post();
         post.setUser(user);
-        post.setContent(req.getContent());
-        post.setImageUrl(req.getImageUrl());
+        post.setContent(content);
+        
+        // Xử lý upload ảnh nếu có
+        if (file != null && !file.isEmpty()) {
+            try {
+                String url = fileUploadService.uploadFile(file);
+                post.setImageUrl(url);
+            } catch (IOException e) {
+                throw new RuntimeException("Lỗi upload ảnh: " + e.getMessage());
+            }
+        }
+        
         post.setLikeCount(0);
         post.setCommentCount(0);
-        
         postRepository.save(post);
         return mapToPostDTO(post, false);
     }
 
     // 10.4 Sửa bài (Chỉ chủ bài viết)
     @Transactional
-    public ForumDTO.PostResponse updatePost(String userId, String postId, ForumDTO.PostRequest req) {
+    public ForumDTO.PostResponse updatePost(String userId, String postId, String content, MultipartFile file) {
         Post post = postRepository.findById(postId).orElseThrow(() -> new RuntimeException("Post not found"));
         
+        // Check quyền: Chỉ chủ bài viết mới được sửa
         if (!post.getUser().getId().equals(userId)) {
             throw new RuntimeException("Unauthorized: You are not the author");
         }
 
-        post.setContent(req.getContent());
-        // Có thể cho sửa ảnh hoặc không tùy logic
+        // Cập nhật nội dung text
+        post.setContent(content);
+        
+        // Cập nhật ảnh (Nếu có gửi file mới lên thì thay thế ảnh cũ)
+        if (file != null && !file.isEmpty()) {
+            try {
+                String url = fileUploadService.uploadFile(file);
+                post.setImageUrl(url);
+            } catch (IOException e) {
+                throw new RuntimeException("Lỗi upload ảnh cập nhật: " + e.getMessage());
+            }
+        }
+        // Lưu ý: Nếu user không gửi file (file == null), ta giữ nguyên ảnh cũ (không xóa).
+
         post.setUpdatedAt(LocalDateTime.now());
         
         return mapToPostDTO(postRepository.save(post), likeRepository.existsByUserIdAndPostId(userId, postId));
@@ -143,14 +168,25 @@ public class ForumService {
 
     // 10.7 Viết bình luận
     @Transactional
-    public ForumDTO.CommentResponse addComment(String userId, String postId, ForumDTO.CommentRequest req) {
+    public ForumDTO.CommentResponse addComment(String userId, String postId, String content, MultipartFile file) {
         User user = userRepository.findById(userId).orElseThrow();
         Post post = postRepository.findById(postId).orElseThrow(() -> new RuntimeException("Post not found"));
 
         Comment comment = new Comment();
         comment.setPost(post);
         comment.setUser(user);
-        comment.setContent(req.getContent());
+        comment.setContent(content);
+        
+        // Xử lý upload ảnh comment
+        if (file != null && !file.isEmpty()) {
+            try {
+                String url = fileUploadService.uploadFile(file);
+                comment.setImageUrl(url);
+            } catch (IOException e) {
+                throw new RuntimeException("Lỗi upload ảnh comment: " + e.getMessage());
+            }
+        }
+        
         commentRepository.save(comment);
 
         // Update count
@@ -215,6 +251,7 @@ public class ForumService {
                 .authorAvatar(comment.getUser().getAvatarUrl())
                 .authorId(comment.getUser().getId())
                 .content(comment.getContent())
+                .imageUrl(comment.getImageUrl())
                 .createdAt(comment.getCreatedAt())
                 .build();
     }
