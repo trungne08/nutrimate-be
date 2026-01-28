@@ -18,17 +18,23 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.ResponseCookie;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.client.registration.ClientRegistration;
+import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
+import org.springframework.security.oauth2.client.registration.InMemoryClientRegistrationRepository;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClient;
-import org.springframework.security.oauth2.client.OAuth2AuthorizedClientService;
 import org.springframework.security.oauth2.client.annotation.RegisteredOAuth2AuthorizedClient;
 import org.springframework.security.oauth2.core.oidc.user.OidcUser;
 import org.springframework.security.oauth2.core.user.OAuth2User;
+import org.springframework.security.web.authentication.logout.SecurityContextLogoutHandler;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
+import org.springframework.web.util.UriComponentsBuilder;
 
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
@@ -40,24 +46,30 @@ import java.util.Optional;
 public class AuthController {
     
     private final UserRepository userRepository;
-    private final OAuth2AuthorizedClientService authorizedClientService;
     private final HealthProfileRepository healthProfileRepository;
     private final FileUploadService fileUploadService;
+    private final ClientRegistrationRepository clientRegistrationRepository;
     private final String backendUrl;
     private final String frontendUrl;
+    private final String sessionCookieSameSite;
+    private final boolean sessionCookieSecure;
     
     public AuthController(UserRepository userRepository, 
-                         OAuth2AuthorizedClientService authorizedClientService,
                          HealthProfileRepository healthProfileRepository,
                          FileUploadService fileUploadService,
+                         ClientRegistrationRepository clientRegistrationRepository,
                          @Value("${app.backend.url:http://localhost:8080}") String backendUrl,
-                         @Value("${app.frontend.url:http://localhost:5173}") String frontendUrl) {
+                         @Value("${app.frontend.url:http://localhost:5173}") String frontendUrl,
+                         @Value("${server.servlet.session.cookie.same-site:lax}") String sessionCookieSameSite,
+                         @Value("${server.servlet.session.cookie.secure:false}") boolean sessionCookieSecure) {
         this.userRepository = userRepository;
-        this.authorizedClientService = authorizedClientService;
         this.healthProfileRepository = healthProfileRepository;
         this.fileUploadService = fileUploadService;
+        this.clientRegistrationRepository = clientRegistrationRepository;
         this.backendUrl = backendUrl;
         this.frontendUrl = frontendUrl;
+        this.sessionCookieSameSite = sessionCookieSameSite;
+        this.sessionCookieSecure = sessionCookieSecure;
     }
     
     @Operation(
@@ -199,30 +211,75 @@ public class AuthController {
             )
     })
     @PostMapping("/logout")
-    public ResponseEntity<Map<String, String>> logout(HttpServletRequest request) {
-        Map<String, String> response = new HashMap<>();
-        
-        // Tự động detect URL từ request hiện tại (Railway/Render/localhost)
-        String baseUrl;
+    public ResponseEntity<Map<String, Object>> logout(
+            HttpServletRequest request,
+            HttpServletResponse httpServletResponse,
+            @Parameter(hidden = true) Authentication authentication) {
+
+        Map<String, Object> response = new HashMap<>();
+
+        // 1) Logout local (invalidate session + clear SecurityContext)
+        new SecurityContextLogoutHandler().logout(request, httpServletResponse, authentication);
+
+        // 2) Clear cookies để tránh "logout xong login lại auto vào account cũ"
+        clearCookie(httpServletResponse, "JSESSIONID", true);
+        clearCookie(httpServletResponse, "XSRF-TOKEN", false);
+        clearCookie(httpServletResponse, "csrf-state-legacy", false);
+
+        // 3) (Optional) Tạo Cognito logout URL để xoá luôn phiên SSO ở Hosted UI
+        String cognitoLogoutUrl = buildCognitoLogoutUrl();
+
+        response.put("success", true);
+        response.put("message", "Logged out successfully");
+        response.put("redirectUrl", frontendUrl);
+        if (cognitoLogoutUrl != null) {
+            response.put("cognitoLogoutUrl", cognitoLogoutUrl);
+        }
+        return ResponseEntity.ok(response);
+    }
+
+    private void clearCookie(HttpServletResponse response, String name, boolean httpOnly) {
+        ResponseCookie cookie = ResponseCookie.from(name, "")
+                .path("/")
+                .maxAge(0)
+                .httpOnly(httpOnly)
+                .secure(sessionCookieSecure)
+                .sameSite(sessionCookieSameSite)
+                .build();
+        response.addHeader("Set-Cookie", cookie.toString());
+    }
+
+    private String buildCognitoLogoutUrl() {
         try {
-            baseUrl = ServletUriComponentsBuilder.fromRequestUri(request)
-                    .replacePath(null)
-                    .scheme(request.getScheme())
+            if (!(clientRegistrationRepository instanceof InMemoryClientRegistrationRepository)) {
+                return null;
+            }
+            ClientRegistration reg = ((InMemoryClientRegistrationRepository) clientRegistrationRepository)
+                    .findByRegistrationId("cognito");
+            if (reg == null) {
+                return null;
+            }
+
+            String authorizationUri = reg.getProviderDetails().getAuthorizationUri();
+            if (authorizationUri == null || authorizationUri.isBlank()) {
+                return null;
+            }
+
+            // Ví dụ auth uri: https://{domain}.auth.{region}.amazoncognito.com/oauth2/authorize
+            String base = UriComponentsBuilder.fromUriString(authorizationUri)
+                    .replacePath("/logout")
+                    .replaceQuery(null)
+                    .build()
+                    .toUriString();
+
+            return UriComponentsBuilder.fromUriString(base)
+                    .queryParam("client_id", reg.getClientId())
+                    .queryParam("logout_uri", frontendUrl)
                     .build()
                     .toUriString();
         } catch (Exception e) {
-            baseUrl = backendUrl;
+            return null;
         }
-        
-        // Đảm bảo dùng HTTPS cho production
-        if (baseUrl.startsWith("http://") && !baseUrl.contains("localhost")) {
-            baseUrl = baseUrl.replace("http://", "https://");
-        }
-        
-        response.put("logoutUrl", baseUrl + "/logout");
-        response.put("redirectUrl", frontendUrl);
-        response.put("message", "Redirect to logoutUrl to logout, then will redirect to frontend");
-        return ResponseEntity.ok(response);
     }
     
     @Operation(

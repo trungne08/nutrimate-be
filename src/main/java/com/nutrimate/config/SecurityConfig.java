@@ -1,6 +1,4 @@
 package com.nutrimate.config;
-
-import com.nutrimate.config.OAuth2AuthenticationSuccessHandler;
 import com.nutrimate.service.CustomOAuth2UserService;
 import com.nutrimate.service.CustomOidcUserService;
 import org.springframework.beans.factory.annotation.Value;
@@ -80,7 +78,7 @@ public class SecurityConfig {
                 .logoutSuccessUrl(frontendUrl)
                 .invalidateHttpSession(true)
                 .clearAuthentication(true)
-                .deleteCookies("JSESSIONID")
+                .deleteCookies("JSESSIONID", "XSRF-TOKEN", "csrf-state-legacy")
             );
         
         return http.build();
