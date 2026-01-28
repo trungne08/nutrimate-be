@@ -47,46 +47,9 @@ public class OAuth2AuthenticationSuccessHandler extends SimpleUrlAuthenticationS
     protected String determineTargetUrl(HttpServletRequest request, 
                                        HttpServletResponse response, 
                                        Authentication authentication) {
-        
-        UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(frontendUrl);
-        
-        // Lấy token từ authentication
-        if (authentication.getPrincipal() instanceof OidcUser) {
-            OidcUser oidcUser = (OidcUser) authentication.getPrincipal();
-            
-            // Lấy ID token
-            if (oidcUser.getIdToken() != null) {
-                String idToken = oidcUser.getIdToken().getTokenValue();
-                builder.queryParam("token", idToken);
-                builder.queryParam("token_type", "Bearer");
-            }
-            
-            // Lấy access token từ OAuth2AuthorizedClientService
-            OAuth2AuthorizedClient authorizedClient = authorizedClientService.loadAuthorizedClient(
-                "cognito", 
-                oidcUser.getName()
-            );
-            
-            if (authorizedClient != null && authorizedClient.getAccessToken() != null) {
-                String accessToken = authorizedClient.getAccessToken().getTokenValue();
-                builder.queryParam("access_token", accessToken);
-            }
-        } else if (authentication.getPrincipal() instanceof OAuth2User) {
-            OAuth2User oauth2User = (OAuth2User) authentication.getPrincipal();
-            
-            // Lấy access token
-            OAuth2AuthorizedClient authorizedClient = authorizedClientService.loadAuthorizedClient(
-                "cognito", 
-                oauth2User.getName()
-            );
-            
-            if (authorizedClient != null && authorizedClient.getAccessToken() != null) {
-                String accessToken = authorizedClient.getAccessToken().getTokenValue();
-                builder.queryParam("access_token", accessToken);
-                builder.queryParam("token_type", "Bearer");
-            }
-        }
-        
-        return builder.toUriString();
+        // Không gửi bất kỳ token nào qua URL nữa.
+        // FE sau khi được redirect tới frontendUrl sẽ tự gọi API /api/auth/token
+        // để lấy access_token nếu cần.
+        return frontendUrl;
     }
 }
