@@ -4,28 +4,18 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.oauth2.client.OAuth2AuthorizedClient;
-import org.springframework.security.oauth2.client.OAuth2AuthorizedClientService;
-import org.springframework.security.oauth2.client.annotation.RegisteredOAuth2AuthorizedClient;
-import org.springframework.security.oauth2.core.oidc.user.OidcUser;
-import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.web.authentication.SimpleUrlAuthenticationSuccessHandler;
 import org.springframework.stereotype.Component;
-import org.springframework.web.util.UriComponentsBuilder;
 
 import java.io.IOException;
 
 @Component
 public class OAuth2AuthenticationSuccessHandler extends SimpleUrlAuthenticationSuccessHandler {
     
-    private final OAuth2AuthorizedClientService authorizedClientService;
     private final String frontendUrl;
     
-    public OAuth2AuthenticationSuccessHandler(OAuth2AuthorizedClientService authorizedClientService,
-                                             @Value("${app.frontend.url:http://localhost:5173}") String frontendUrl) {
-        this.authorizedClientService = authorizedClientService;
+    public OAuth2AuthenticationSuccessHandler(@Value("${app.frontend.url:http://localhost:5173}") String frontendUrl) {
         this.frontendUrl = frontendUrl;
         setDefaultTargetUrl(frontendUrl);
     }
