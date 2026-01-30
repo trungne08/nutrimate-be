@@ -1,10 +1,13 @@
 package com.nutrimate.controller;
 
 import com.nutrimate.dto.ApiResponse; // Giả sử bạn có class bọc response chung
+import com.nutrimate.dto.ExpertApproveRequest;
 import com.nutrimate.entity.User;
+import com.nutrimate.exception.ResourceNotFoundException;
 import com.nutrimate.entity.ExpertProfile;
 import com.nutrimate.repository.UserRepository;
 import com.nutrimate.repository.ExpertProfileRepository;
+import com.nutrimate.exception.BadRequestException;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.data.domain.Page;
@@ -13,7 +16,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
-
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -89,26 +92,51 @@ public class AdminController {
 
     // --- 2.5 & 2.6 QUẢN LÝ EXPERT (DUYỆT) ---
 
-    @Operation(summary = "Get pending experts")
+    @Operation(summary = "Get list of Pending Experts")
     @GetMapping("/experts/pending")
-    public ResponseEntity<?> getPendingExperts() {
-        // Cần custom query trong Repo để tìm expert chưa được duyệt
-        // Ví dụ: return expertProfileRepository.findByStatus("PENDING");
-        return ResponseEntity.ok(Map.of("message", "List of pending experts"));
+    public ResponseEntity<List<ExpertProfile>> getPendingExperts() {
+        // 👇 CODE CŨ (SAI): 
+        // return ResponseEntity.ok(Map.of("message", "List of pending experts"));
+
+        // 👇 CODE MỚI (ĐÚNG): Gọi DB lấy danh sách PENDING thật
+        List<ExpertProfile> pendingList = expertProfileRepository.findByStatus(ExpertProfile.ApprovalStatus.PENDING);
+        
+        if (pendingList.isEmpty()) {
+            return ResponseEntity.noContent().build(); // Trả về 204 nếu không có ai chờ duyệt
+        }
+        
+        return ResponseEntity.ok(pendingList);
     }
 
-    @Operation(summary = "Approve or Reject Expert")
+    @Operation(summary = "Approve or Reject Expert (Status: APPROVED / REJECTED)")
     @PutMapping("/experts/{id}/approve")
-    public ResponseEntity<?> approveExpert(@PathVariable String id, @RequestBody Map<String, String> request) {
-        String status = request.get("status"); // APPROVED or REJECTED
+    public ResponseEntity<?> approveExpert(
+            @PathVariable String id, 
+            @RequestBody ExpertApproveRequest request) { // 👈 Đã sửa chỗ này
         
-        // Logic: Tìm expert profile và update status
-        // ExpertProfile expert = expertProfileRepository.findById(id)...
-        // expert.setStatus(status);
-        // expertProfileRepository.save(expert);
+        String statusStr = request.getStatus(); // Lấy từ DTO
         
-        // Nếu Approved, có thể cần update role của User thành EXPERT
-        
-        return ResponseEntity.ok(Map.of("message", "Expert application " + status));
+        ExpertProfile expert = expertProfileRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Expert profile not found"));
+
+        if ("APPROVED".equalsIgnoreCase(statusStr)) {
+            expert.setStatus(ExpertProfile.ApprovalStatus.APPROVED);
+            
+            // Nâng cấp User lên Role EXPERT
+            User user = expert.getUser();
+            user.setRole(User.UserRole.EXPERT);
+            userRepository.save(user);
+            
+        } else if ("REJECTED".equalsIgnoreCase(statusStr)) {
+            expert.setStatus(ExpertProfile.ApprovalStatus.REJECTED);
+        } else {
+            throw new BadRequestException("Status không hợp lệ. Vui lòng điền 'APPROVED' hoặc 'REJECTED'");
+        }
+        expertProfileRepository.save(expert);
+        return ResponseEntity.ok(Map.of(
+            "message", "Đã cập nhật trạng thái thành công!",
+            "status", expert.getStatus(),
+            "expertId", expert.getId()
+        ));
     }
 }

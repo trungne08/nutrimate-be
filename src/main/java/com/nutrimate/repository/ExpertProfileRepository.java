@@ -1,6 +1,8 @@
 package com.nutrimate.repository;
 
 import com.nutrimate.entity.ExpertProfile;
+import com.nutrimate.entity.ExpertProfile.ApprovalStatus;
+
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -13,6 +15,8 @@ import java.util.Optional;
 @Repository
 public interface ExpertProfileRepository extends JpaRepository<ExpertProfile, String> {
     Optional<ExpertProfile> findByUserId(String userId);
+
+    List<ExpertProfile> findByStatus(ApprovalStatus status);
     
     // Tìm chuyên gia theo chuyên môn (VD: PT, Nutritionist)
     List<ExpertProfile> findBySpecializationContainingIgnoreCase(String specialization);

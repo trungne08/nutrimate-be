@@ -26,7 +26,15 @@ public class ExpertService {
 
     // 5.1 Search
     public List<ExpertProfile> searchExperts(Float minRating, BigDecimal maxPrice) {
-        return expertRepository.searchExperts(minRating, maxPrice);
+        // 1. Chỉ lấy những Expert đã được DUYỆT (APPROVED)
+        // (Thay vì dùng findAll() như cũ)
+        List<ExpertProfile> experts = expertRepository.findByStatus(ExpertProfile.ApprovalStatus.APPROVED);
+
+        // 2. Lọc tiếp theo Rating và Price (nếu user có truyền vào)
+        return experts.stream()
+                .filter(e -> minRating == null || (e.getRating() != null && e.getRating() >= minRating))
+                .filter(e -> maxPrice == null || (e.getHourlyRate() != null && e.getHourlyRate().compareTo(maxPrice) <= 0))
+                .toList();
     }
 
     // 5.2 Get Detail
