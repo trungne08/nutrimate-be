@@ -1,24 +1,32 @@
 package com.nutrimate.service;
 
+import com.nutrimate.entity.SubscriptionPlan;
 import com.nutrimate.entity.User;
+import com.nutrimate.entity.UserBenefitUsage;
+import com.nutrimate.entity.UserSubscription;
+import com.nutrimate.repository.SubscriptionPlanRepository;
+import com.nutrimate.repository.UserBenefitUsageRepository;
 import com.nutrimate.repository.UserRepository;
+import com.nutrimate.repository.UserSubscriptionRepository;
+import lombok.RequiredArgsConstructor;
 import org.springframework.security.oauth2.client.oidc.userinfo.OidcUserRequest;
 import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
 import org.springframework.security.oauth2.core.oidc.user.OidcUser;
 import org.springframework.security.oauth2.client.oidc.userinfo.OidcUserService;
 import org.springframework.stereotype.Service;
-
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.Optional;
 
 @Service
+@RequiredArgsConstructor
 public class CustomOidcUserService extends OidcUserService {
     
     private final UserRepository userRepository;
-    
-    public CustomOidcUserService(UserRepository userRepository) {
-        this.userRepository = userRepository;
-        System.out.println(">>> 🎯 CustomOidcUserService đã được khởi tạo!");
-    }
+    private final SubscriptionPlanRepository planRepository;
+    private final UserSubscriptionRepository userSubscriptionRepository;
+    private final UserBenefitUsageRepository benefitUsageRepository;
     
     @Override
     public OidcUser loadUser(OidcUserRequest userRequest) throws OAuth2AuthenticationException {
@@ -82,9 +90,10 @@ public class CustomOidcUserService extends OidcUserService {
             newUser.setRole(User.UserRole.MEMBER); // Đúng chuẩn ENUM trong DB
             
             try {
-                userRepository.save(newUser);
+                User savedUser = userRepository.save(newUser);
                 System.out.println(">>> ✅ Đã lưu User mới vào bảng Users: " + email);
-                System.out.println(">>> 💾 User ID: " + newUser.getId());
+                System.out.println(">>> 💾 User ID: " + savedUser.getId());
+                assignFreeSubscription(savedUser);
             } catch (Exception e) {
                 System.err.println(">>> ❌ LỖI KHI LƯU USER: " + e.getMessage());
                 e.printStackTrace();
@@ -93,5 +102,35 @@ public class CustomOidcUserService extends OidcUserService {
         
         // Trả về OidcUser để Spring Security tiếp tục xử lý
         return oidcUser;
+    }
+
+    private void assignFreeSubscription(User user) {
+        // Logic y hệt bên trên
+        try {
+            SubscriptionPlan freePlan = planRepository.findFirstByPrice(BigDecimal.ZERO)
+                    .orElseThrow(() -> new RuntimeException("Cấu hình lỗi: Không tìm thấy gói FREE"));
+
+            UserSubscription sub = new UserSubscription();
+            sub.setUser(user);
+            sub.setPlan(freePlan);
+            sub.setStartDate(LocalDateTime.now());
+            sub.setEndDate(LocalDateTime.now().plusYears(100));
+            sub.setStatus(UserSubscription.SubscriptionStatus.Active);
+            sub.setAutoRenew(false);
+            
+            UserSubscription savedSub = userSubscriptionRepository.save(sub);
+
+            UserBenefitUsage usage = new UserBenefitUsage();
+            usage.setUserId(user.getId());
+            usage.setSubscription(savedSub);
+            usage.setDailyRecipeViews(0);
+            usage.setLastRecipeViewDate(LocalDate.now());
+            usage.setSessionsUsed(0);
+            benefitUsageRepository.save(usage);
+            System.out.println(">>> 🎁 (OIDC) Đã gán gói FREE cho user: " + user.getEmail());
+        } catch (Exception e) {
+            System.err.println(">>> ❌ Lỗi gán gói Free (OIDC): " + e.getMessage());
+            e.printStackTrace();
+        }
     }
 }

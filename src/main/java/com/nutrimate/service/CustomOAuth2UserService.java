@@ -1,25 +1,33 @@
 package com.nutrimate.service;
 
+import com.nutrimate.entity.SubscriptionPlan;
 import com.nutrimate.entity.User;
+import com.nutrimate.entity.UserBenefitUsage;
+import com.nutrimate.entity.UserSubscription;
+import com.nutrimate.repository.SubscriptionPlanRepository;
+import com.nutrimate.repository.UserBenefitUsageRepository;
 import com.nutrimate.repository.UserRepository;
+import com.nutrimate.repository.UserSubscriptionRepository;
+import lombok.RequiredArgsConstructor;
 import org.springframework.security.oauth2.client.userinfo.DefaultOAuth2UserService;
 import org.springframework.security.oauth2.client.userinfo.OAuth2UserRequest;
 import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.stereotype.Service;
-
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.Optional;
 
 @Service
+@RequiredArgsConstructor
 public class CustomOAuth2UserService extends DefaultOAuth2UserService {
     
     private final UserRepository userRepository;
-    
-    public CustomOAuth2UserService(UserRepository userRepository) {
-        this.userRepository = userRepository;
-        System.out.println(">>> 🎯 CustomOAuth2UserService đã được khởi tạo!");
-    }
+    private final SubscriptionPlanRepository planRepository;
+    private final UserSubscriptionRepository userSubscriptionRepository;
+    private final UserBenefitUsageRepository benefitUsageRepository;
     
     @Override
     public OAuth2User loadUser(OAuth2UserRequest userRequest) throws OAuth2AuthenticationException {
@@ -83,9 +91,10 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
             newUser.setRole(User.UserRole.MEMBER); // Đúng chuẩn ENUM trong DB
             
             try {
-                userRepository.save(newUser);
+                User savedUser = userRepository.save(newUser);
                 System.out.println(">>> ✅ Đã lưu User mới vào bảng Users: " + email);
                 System.out.println(">>> 💾 User ID: " + newUser.getId());
+                assignFreeSubscription(savedUser);
             } catch (Exception e) {
                 System.err.println(">>> ❌ LỖI KHI LƯU USER: " + e.getMessage());
                 e.printStackTrace();
@@ -94,5 +103,34 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
         
         // Trả về OAuth2User để Spring Security tiếp tục xử lý
         return oauth2User;
+    }
+
+    private void assignFreeSubscription(User user) {
+        try {
+            SubscriptionPlan freePlan = planRepository.findFirstByPrice(BigDecimal.ZERO)
+                    .orElseThrow(() -> new RuntimeException("Chưa có gói FREE trong DB"));
+
+            UserSubscription sub = new UserSubscription();
+            sub.setUser(user);
+            sub.setPlan(freePlan);
+            sub.setStartDate(LocalDateTime.now());
+            sub.setEndDate(LocalDateTime.now().plusYears(100));
+            sub.setStatus(UserSubscription.SubscriptionStatus.Active);
+            sub.setAutoRenew(false);
+            
+            UserSubscription savedSub = userSubscriptionRepository.save(sub);
+
+            UserBenefitUsage usage = new UserBenefitUsage();
+            usage.setUserId(user.getId());
+            usage.setSubscription(savedSub);
+            usage.setDailyRecipeViews(0);
+            usage.setLastRecipeViewDate(LocalDate.now());
+            usage.setSessionsUsed(0);
+            
+            benefitUsageRepository.save(usage);
+            System.out.println(">>> 🎁 Đã tặng gói FREE cho: " + user.getEmail());
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 }
