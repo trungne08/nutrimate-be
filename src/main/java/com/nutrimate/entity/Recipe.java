@@ -19,6 +19,9 @@ public class Recipe {
     @Column(name = "description", nullable = false)
     private String description;
     
+    @Column(name = "image_url")
+    private String imageUrl;
+
     @Column(columnDefinition = "TEXT")
     private String instruction;
     

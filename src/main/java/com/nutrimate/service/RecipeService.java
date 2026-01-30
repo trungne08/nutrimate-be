@@ -10,7 +10,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
+import org.springframework.web.multipart.MultipartFile;
+import java.io.IOException;
 import java.time.LocalDate;
 import java.util.Optional;
 
@@ -22,6 +23,7 @@ public class RecipeService {
     private final UserSubscriptionRepository userSubscriptionRepository;
     private final UserBenefitUsageRepository benefitUsageRepository;
     private final UserRepository userRepository;
+    private final FileUploadService fileUploadService;
 
     // 1. Tìm kiếm (Giữ nguyên)
     public Page<Recipe> getRecipes(String keyword, Integer maxCal, Pageable pageable) {
@@ -79,16 +81,40 @@ public class RecipeService {
     // --- CÁC HÀM ADMIN (Giờ sẽ gọi hàm 1 tham số -> HẾT LỖI) ---
 
     @Transactional
-    public Recipe createRecipe(RecipeDTO dto) {
+    public Recipe createRecipe(RecipeDTO dto, MultipartFile file) {
         Recipe recipe = new Recipe();
         mapDtoToEntity(dto, recipe);
+        
+        // Xử lý upload ảnh
+        if (file != null && !file.isEmpty()) {
+            try {
+                String url = fileUploadService.uploadFile(file);
+                recipe.setImageUrl(url); // Đảm bảo Entity Recipe có field 'image' hoặc 'imageUrl'
+            } catch (IOException e) {
+                throw new RuntimeException("Lỗi upload ảnh recipe: " + e.getMessage());
+            }
+        }
+        
         return recipeRepository.save(recipe);
     }
 
+    // 👇 SỬA HÀM UPDATE: Thêm tham số MultipartFile
     @Transactional
-    public Recipe updateRecipe(String id, RecipeDTO dto) {
-        Recipe recipe = getRecipeById(id); // 👈 Giờ nó gọi hàm 1 (OK)
+    public Recipe updateRecipe(String id, RecipeDTO dto, MultipartFile file) {
+        Recipe recipe = getRecipeById(id);
         mapDtoToEntity(dto, recipe);
+
+        // Nếu có gửi ảnh mới lên thì thay thế
+        if (file != null && !file.isEmpty()) {
+            try {
+                String url = fileUploadService.uploadFile(file);
+                recipe.setImageUrl(url);
+            } catch (IOException e) {
+                throw new RuntimeException("Lỗi upload ảnh recipe update: " + e.getMessage());
+            }
+        }
+        // Nếu file null thì giữ nguyên ảnh cũ
+
         return recipeRepository.save(recipe);
     }
 

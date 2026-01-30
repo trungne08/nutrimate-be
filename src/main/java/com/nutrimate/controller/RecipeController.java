@@ -23,6 +23,8 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.core.oidc.user.OidcUser;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.http.MediaType;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/api/recipes")
@@ -80,18 +82,26 @@ public class RecipeController {
     }
 
     // --- ADMIN APIs ---
-    @Operation(summary = "[Admin] Create new recipe")
-    @PostMapping
+    @Operation(summary = "[Admin] Create new recipe with Image")
+    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE) // Quan trọng: Báo là nhận Form Data
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Recipe> createRecipe(@Valid @RequestBody RecipeDTO recipeDTO) {
-        return ResponseEntity.ok(recipeService.createRecipe(recipeDTO));
+    public ResponseEntity<Recipe> createRecipe(
+            @ModelAttribute @Valid RecipeDTO recipeDTO, // Dùng ModelAttribute để hứng các field text (title, calories...)
+            @RequestParam(value = "imageFile", required = false) MultipartFile imageFile // Hứng file ảnh
+    ) {
+        return ResponseEntity.ok(recipeService.createRecipe(recipeDTO, imageFile));
     }
 
-    @Operation(summary = "[Admin] Update recipe")
-    @PutMapping("/{id}")
+    // 👇 SỬA API UPDATE (ADMIN)
+    @Operation(summary = "[Admin] Update recipe with Image")
+    @PutMapping(value = "/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Recipe> updateRecipe(@PathVariable String id, @Valid @RequestBody RecipeDTO recipeDTO) {
-        return ResponseEntity.ok(recipeService.updateRecipe(id, recipeDTO));
+    public ResponseEntity<Recipe> updateRecipe(
+            @PathVariable String id,
+            @ModelAttribute @Valid RecipeDTO recipeDTO,
+            @RequestParam(value = "imageFile", required = false) MultipartFile imageFile
+    ) {
+        return ResponseEntity.ok(recipeService.updateRecipe(id, recipeDTO, imageFile));
     }
 
     @Operation(summary = "[Admin] Delete recipe")
