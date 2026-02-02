@@ -143,34 +143,50 @@ public class AuthController {
         
         Map<String, Object> response = new HashMap<>();
         
+        // Debug: Xem principal type khi có token mà vẫn "Not authenticated"
+        if (authentication != null) {
+            Object p = authentication.getPrincipal();
+            System.out.println(">>> /me Principal type: " + p.getClass().getSimpleName() + 
+                ", authenticated=" + authentication.isAuthenticated());
+            if (p instanceof Jwt) {
+                Jwt jwt = (Jwt) p;
+                System.out.println(">>> /me JWT claims: email=" + jwt.getClaimAsString("email") + 
+                    ", sub=" + jwt.getClaimAsString("sub") + ", token_use=" + jwt.getClaimAsString("token_use"));
+            }
+        } else {
+            System.out.println(">>> /me authentication=null (có thể JWT validate fail → 401 trước khi tới đây)");
+        }
+        
         // Xử lý khi FE gửi Bearer token (JWT) - từ /api/auth/token
         if (authentication != null && authentication.getPrincipal() instanceof Jwt) {
             Jwt jwt = (Jwt) authentication.getPrincipal();
             String email = jwt.getClaimAsString("email");
             if (email == null) email = jwt.getClaimAsString("cognito:username");
             if (email == null) email = jwt.getClaimAsString("preferred_username");
-            if (email != null) {
-                Optional<User> userOpt = userRepository.findByEmail(email);
-                if (userOpt.isPresent()) {
-                    User user = userOpt.get();
-                    response.put("authenticated", true);
-                    response.put("user", Map.of(
-                        "id", user.getId(),
-                        "email", user.getEmail(),
-                        "fullName", user.getFullName() != null ? user.getFullName() : "",
-                        "username", user.getUsername() != null ? user.getUsername() : "",
-                        "phoneNumber", user.getPhoneNumber() != null ? user.getPhoneNumber() : "",
-                        "role", user.getRole().name(),
-                        "avatarUrl", user.getAvatarUrl() != null ? user.getAvatarUrl() : ""
-                    ));
-                    return ResponseEntity.ok(response);
-                }
+            Optional<User> userOpt = email != null ? userRepository.findByEmail(email) : Optional.empty();
+            if (userOpt.isEmpty() && jwt.getClaimAsString("sub") != null) {
+                userOpt = userRepository.findByCognitoId(jwt.getClaimAsString("sub"));
+            }
+            if (userOpt.isPresent()) {
+                User user = userOpt.get();
                 response.put("authenticated", true);
-                response.put("user", null);
-                response.put("message", "User not found in database");
+                response.put("user", Map.of(
+                    "id", user.getId(),
+                    "email", user.getEmail(),
+                    "fullName", user.getFullName() != null ? user.getFullName() : "",
+                    "username", user.getUsername() != null ? user.getUsername() : "",
+                    "phoneNumber", user.getPhoneNumber() != null ? user.getPhoneNumber() : "",
+                    "role", user.getRole().name(),
+                    "avatarUrl", user.getAvatarUrl() != null ? user.getAvatarUrl() : ""
+                ));
                 return ResponseEntity.ok(response);
             }
+            response.put("authenticated", true);
+            response.put("user", null);
+            response.put("message", "User not found in database");
+            return ResponseEntity.ok(response);
         }
+        
         // Xử lý cho OIDC (OpenID Connect) - Cognito (session/cookie)
         if (oidcUser != null) {
             String email = oidcUser.getEmail();
