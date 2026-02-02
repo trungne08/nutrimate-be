@@ -26,6 +26,7 @@ import org.springframework.security.oauth2.client.registration.ClientRegistratio
 import org.springframework.security.oauth2.client.registration.InMemoryClientRegistrationRepository;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClient;
 import org.springframework.security.oauth2.client.annotation.RegisteredOAuth2AuthorizedClient;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.core.oidc.user.OidcUser;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.security.web.authentication.logout.SecurityContextLogoutHandler;
@@ -136,12 +137,41 @@ public class AuthController {
     })
     @GetMapping("/me")
     public ResponseEntity<Map<String, Object>> getCurrentUser(
+            @Parameter(hidden = true) Authentication authentication,
             @Parameter(hidden = true) @AuthenticationPrincipal OidcUser oidcUser,
             @Parameter(hidden = true) @AuthenticationPrincipal OAuth2User oauth2User) {
         
         Map<String, Object> response = new HashMap<>();
         
-        // Xử lý cho OIDC (OpenID Connect) - Cognito
+        // Xử lý khi FE gửi Bearer token (JWT) - từ /api/auth/token
+        if (authentication != null && authentication.getPrincipal() instanceof Jwt) {
+            Jwt jwt = (Jwt) authentication.getPrincipal();
+            String email = jwt.getClaimAsString("email");
+            if (email == null) email = jwt.getClaimAsString("cognito:username");
+            if (email == null) email = jwt.getClaimAsString("preferred_username");
+            if (email != null) {
+                Optional<User> userOpt = userRepository.findByEmail(email);
+                if (userOpt.isPresent()) {
+                    User user = userOpt.get();
+                    response.put("authenticated", true);
+                    response.put("user", Map.of(
+                        "id", user.getId(),
+                        "email", user.getEmail(),
+                        "fullName", user.getFullName() != null ? user.getFullName() : "",
+                        "username", user.getUsername() != null ? user.getUsername() : "",
+                        "phoneNumber", user.getPhoneNumber() != null ? user.getPhoneNumber() : "",
+                        "role", user.getRole().name(),
+                        "avatarUrl", user.getAvatarUrl() != null ? user.getAvatarUrl() : ""
+                    ));
+                    return ResponseEntity.ok(response);
+                }
+                response.put("authenticated", true);
+                response.put("user", null);
+                response.put("message", "User not found in database");
+                return ResponseEntity.ok(response);
+            }
+        }
+        // Xử lý cho OIDC (OpenID Connect) - Cognito (session/cookie)
         if (oidcUser != null) {
             String email = oidcUser.getEmail();
             Optional<User> userOpt = userRepository.findByEmail(email);
