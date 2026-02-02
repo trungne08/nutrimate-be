@@ -143,20 +143,6 @@ public class AuthController {
         
         Map<String, Object> response = new HashMap<>();
         
-        // Debug: Xem principal type khi có token mà vẫn "Not authenticated"
-        if (authentication != null) {
-            Object p = authentication.getPrincipal();
-            System.out.println(">>> /me Principal type: " + p.getClass().getSimpleName() + 
-                ", authenticated=" + authentication.isAuthenticated());
-            if (p instanceof Jwt) {
-                Jwt jwt = (Jwt) p;
-                System.out.println(">>> /me JWT claims: email=" + jwt.getClaimAsString("email") + 
-                    ", sub=" + jwt.getClaimAsString("sub") + ", token_use=" + jwt.getClaimAsString("token_use"));
-            }
-        } else {
-            System.out.println(">>> /me authentication=null (có thể JWT validate fail → 401 trước khi tới đây)");
-        }
-        
         // Xử lý khi FE gửi Bearer token (JWT) - từ /api/auth/token
         if (authentication != null && authentication.getPrincipal() instanceof Jwt) {
             Jwt jwt = (Jwt) authentication.getPrincipal();

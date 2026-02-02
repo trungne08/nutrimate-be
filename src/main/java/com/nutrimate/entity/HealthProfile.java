@@ -105,7 +105,8 @@ public class HealthProfile {
         NONE("None"),
         VEGAN("Vegan"),
         KETO("Keto"),
-        CLEAN_EATING("Clean Eating");
+        CLEAN_EATING("Clean Eating"),
+        BALANCED("Balanced");
         
         private final String dbValue;
         

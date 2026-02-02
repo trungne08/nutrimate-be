@@ -45,6 +45,6 @@ public class HealthProfileRequest {
     private HealthProfile.ActivityLevel activityLevel;
     
     @Schema(description = "Dietary preference (optional)", example = "CLEAN_EATING", 
-            allowableValues = {"NONE", "VEGAN", "KETO", "CLEAN_EATING"})
+            allowableValues = {"NONE", "VEGAN", "KETO", "CLEAN_EATING", "BALANCED"})
     private HealthProfile.DietaryPreference dietaryPreference;
 }
