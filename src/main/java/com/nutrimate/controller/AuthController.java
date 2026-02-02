@@ -126,7 +126,7 @@ public class AuthController {
                     content = @Content(
                             mediaType = "application/json",
                             schema = @Schema(implementation = Map.class),
-                            examples = @ExampleObject(value = "{\"authenticated\": true, \"user\": {\"id\": 1, \"email\": \"user@example.com\", \"fullName\": \"John Doe\", \"username\": \"johndoe\", \"role\": \"MEMBER\", \"avatarUrl\": \"https://...\"}}")
+                            examples = @ExampleObject(value = "{\"authenticated\": true, \"user\": {\"id\": 1, \"email\": \"user@example.com\", \"fullName\": \"John Doe\", \"username\": \"johndoe\", \"phoneNumber\": \"+84901234567\", \"role\": \"MEMBER\", \"avatarUrl\": \"https://...\"}}")
                     )
             ),
             @ApiResponse(
@@ -154,6 +154,7 @@ public class AuthController {
                     "email", user.getEmail(),
                     "fullName", user.getFullName() != null ? user.getFullName() : "",
                     "username", user.getUsername() != null ? user.getUsername() : "",
+                    "phoneNumber", user.getPhoneNumber() != null ? user.getPhoneNumber() : "",
                     "role", user.getRole().name(),
                     "avatarUrl", user.getAvatarUrl() != null ? user.getAvatarUrl() : ""
                 ));
@@ -177,6 +178,7 @@ public class AuthController {
                     "email", user.getEmail(),
                     "fullName", user.getFullName() != null ? user.getFullName() : "",
                     "username", user.getUsername() != null ? user.getUsername() : "",
+                    "phoneNumber", user.getPhoneNumber() != null ? user.getPhoneNumber() : "",
                     "role", user.getRole().name(),
                     "avatarUrl", user.getAvatarUrl() != null ? user.getAvatarUrl() : ""
                 ));

@@ -54,6 +54,7 @@ public class SecurityConfig {
                                 "/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html").permitAll()
                 
                 .requestMatchers(HttpMethod.GET, "/api/forum/posts/**", "/api/forum/comments/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/experts/my-bookings").hasRole("EXPERT")
                 .requestMatchers(HttpMethod.GET, "/api/experts/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/challenges/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/recipe/**").permitAll()

@@ -3,16 +3,19 @@ package com.nutrimate.dto;
 import com.nutrimate.entity.Challenge;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
+import org.springframework.web.multipart.MultipartFile;
 
 @Data
 public class ChallengeDTO {
-    // Request tạo mới
+    // Request tạo mới / cập nhật (multipart/form-data để upload hình)
     @Data
     public static class CreateRequest {
         @NotNull private String title;
         private String description;
         @NotNull private Integer durationDays;
         private Challenge.ChallengeLevel level;
+        private MultipartFile imageFile;  // Upload file hình (ưu tiên)
+        private String imageUrl;          // Hoặc truyền URL sẵn (nếu không có file)
     }
 
     // Response cho User (Kèm tiến độ nếu đã tham gia)
@@ -23,6 +26,7 @@ public class ChallengeDTO {
         private String description;
         private Integer durationDays;
         private String level;
+        private String imageUrl;
         
         // Thông tin riêng của User (nếu có)
         private boolean isJoined;

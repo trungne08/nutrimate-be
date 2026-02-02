@@ -19,7 +19,9 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.core.oidc.user.OidcUser;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.http.MediaType;
 
+import jakarta.validation.Valid;
 import java.util.List;
 
 @RestController
@@ -51,17 +53,19 @@ public class ChallengeController {
     }
 
     // --- ADMIN ---
-    @Operation(summary = "[Admin] Create new challenge")
-    @PostMapping("/admin/challenges")
+    @Operation(summary = "[Admin] Create new challenge (multipart/form-data: title, description, durationDays, level, imageFile)")
+    @PostMapping(value = "/admin/challenges", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Challenge> createChallenge(@RequestBody ChallengeDTO.CreateRequest req) {
+    public ResponseEntity<Challenge> createChallenge(@Valid @ModelAttribute ChallengeDTO.CreateRequest req) throws java.io.IOException {
         return ResponseEntity.ok(challengeService.createChallenge(req));
     }
 
-    @Operation(summary = "[Admin] Update challenge")
-    @PutMapping("/admin/challenges/{id}")
+    @Operation(summary = "[Admin] Update challenge (multipart/form-data: title, description, durationDays, level, imageFile)")
+    @PutMapping(value = "/admin/challenges/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Challenge> updateChallenge(@PathVariable String id, @RequestBody ChallengeDTO.CreateRequest req) {
+    public ResponseEntity<Challenge> updateChallenge(
+            @PathVariable String id,
+            @Valid @ModelAttribute ChallengeDTO.CreateRequest req) throws java.io.IOException {
         return ResponseEntity.ok(challengeService.updateChallenge(id, req));
     }
 

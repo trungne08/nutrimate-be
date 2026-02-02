@@ -24,5 +24,8 @@ public class Challenge {
     @Enumerated(EnumType.STRING)
     private ChallengeLevel level; // EASY, MEDIUM, HARD
 
+    @Column(name = "image_url", length = 512)
+    private String imageUrl; // URL ảnh thử thách (upload lên Cloudinary)
+
     public enum ChallengeLevel { EASY, MEDIUM, HARD }
 }

@@ -9,6 +9,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.io.IOException;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -20,6 +21,7 @@ public class ChallengeService {
     private final ChallengeRepository challengeRepository;
     private final UserChallengeRepository userChallengeRepository;
     private final UserRepository userRepository;
+    private final FileUploadService fileUploadService;
 
     // 8.1 Xem danh sách thử thách (Public)
     public List<Challenge> getAllChallenges() {
@@ -28,17 +30,18 @@ public class ChallengeService {
 
     // 8.2 [ADMIN] Tạo thử thách
     @Transactional
-    public Challenge createChallenge(ChallengeDTO.CreateRequest req) {
+    public Challenge createChallenge(ChallengeDTO.CreateRequest req) throws IOException {
         Challenge challenge = new Challenge();
         challenge.setTitle(req.getTitle());
         challenge.setDescription(req.getDescription());
         challenge.setDurationDays(req.getDurationDays());
         challenge.setLevel(req.getLevel() != null ? req.getLevel() : Challenge.ChallengeLevel.EASY);
+        setChallengeImage(challenge, req);
         return challengeRepository.save(challenge);
     }
 
     @Transactional
-    public Challenge updateChallenge(String id, ChallengeDTO.CreateRequest req) {
+    public Challenge updateChallenge(String id, ChallengeDTO.CreateRequest req) throws IOException {
         Challenge challenge = challengeRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Challenge not found"));
         
@@ -46,8 +49,17 @@ public class ChallengeService {
         challenge.setDescription(req.getDescription());
         challenge.setDurationDays(req.getDurationDays());
         if (req.getLevel() != null) challenge.setLevel(req.getLevel());
-        
+        setChallengeImage(challenge, req);
         return challengeRepository.save(challenge);
+    }
+
+    private void setChallengeImage(Challenge challenge, ChallengeDTO.CreateRequest req) throws IOException {
+        if (req.getImageFile() != null && !req.getImageFile().isEmpty()) {
+            String url = fileUploadService.uploadFile(req.getImageFile());
+            challenge.setImageUrl(url);
+        } else if (req.getImageUrl() != null && !req.getImageUrl().trim().isEmpty()) {
+            challenge.setImageUrl(req.getImageUrl().trim());
+        }
     }
 
     @Transactional
@@ -93,6 +105,7 @@ public class ChallengeService {
             dto.setDescription(c.getDescription());
             dto.setDurationDays(c.getDurationDays());
             dto.setLevel(c.getLevel().name());
+            dto.setImageUrl(c.getImageUrl());
 
             // Info cá nhân
             dto.setJoined(true);

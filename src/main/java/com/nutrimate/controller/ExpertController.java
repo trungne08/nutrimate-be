@@ -1,11 +1,13 @@
 package com.nutrimate.controller;
 
 import com.nutrimate.dto.ExpertApplicationDTO;
+import com.nutrimate.entity.Booking;
 import com.nutrimate.entity.ExpertProfile;
 import com.nutrimate.entity.User;
 import com.nutrimate.exception.BadRequestException;
 import com.nutrimate.exception.ResourceNotFoundException;
 import com.nutrimate.repository.UserRepository;
+import com.nutrimate.service.BookingService;
 import com.nutrimate.service.ExpertService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -30,6 +32,7 @@ import java.util.List;
 public class ExpertController {
 
     private final ExpertService expertService;
+    private final BookingService bookingService;
     private final UserRepository userRepository;
 
     // 5.1 GET /api/experts (Filter)
@@ -46,6 +49,15 @@ public class ExpertController {
     @GetMapping("/{id}")
     public ResponseEntity<ExpertProfile> getExpertDetail(@PathVariable String id) {
         return ResponseEntity.ok(expertService.getExpertById(id));
+    }
+
+    @Operation(summary = "[Expert] Xem danh sách booking của mình")
+    @GetMapping("/my-bookings")
+    @PreAuthorize("hasRole('EXPERT')")
+    public ResponseEntity<List<Booking>> getMyBookings(
+            @Parameter(hidden = true) Authentication authentication) {
+        String expertUserId = getCurrentUserId(authentication);
+        return ResponseEntity.ok(bookingService.getMyExpertBookings(expertUserId));
     }
 
     private String getCurrentUserId(Authentication authentication) {

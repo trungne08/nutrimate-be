@@ -89,7 +89,12 @@ public class BookingService {
         return bookingRepository.save(booking);
     }
 
-    // 5.5 LỊCH SỬ BOOKING
+    // Lịch sử booking của Expert (chỉ những booking được assign cho expert này)
+    public List<Booking> getMyExpertBookings(String expertUserId) {
+        return bookingRepository.findByExpertIdOrderByBookingTimeDesc(expertUserId);
+    }
+
+    // 5.5 LỊCH SỬ BOOKING (Member - những booking mình đặt)
     public List<Booking> getMyBookings(String userId) {
         // Tìm xem user là Member hay Expert
         // Ở đây mình thử tìm cả 2, cái nào có dữ liệu thì trả về
