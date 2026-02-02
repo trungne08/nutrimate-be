@@ -226,7 +226,6 @@ public class HealthProfileController {
         Float bmi = healthProfile.calculateBMI();
         Integer age = healthProfile.calculateAge();
         
-        // Trả về thông tin health profile
         Map<String, Object> profileInfo = new HashMap<>();
         profileInfo.put("id", healthProfile.getId());
         profileInfo.put("gender", healthProfile.getGender().name());
