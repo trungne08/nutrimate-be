@@ -51,9 +51,9 @@ public class ExpertController {
         return ResponseEntity.ok(expertService.getExpertById(id));
     }
 
-    @Operation(summary = "[Expert] Xem danh sách booking của mình")
+    @Operation(summary = "[Expert/Admin] Xem danh sách booking của mình")
     @GetMapping("/my-bookings")
-    @PreAuthorize("hasRole('EXPERT')")
+    @PreAuthorize("hasAnyRole('EXPERT','ADMIN')")
     public ResponseEntity<List<Booking>> getMyBookings(
             @Parameter(hidden = true) Authentication authentication) {
         String expertUserId = getCurrentUserId(authentication);
