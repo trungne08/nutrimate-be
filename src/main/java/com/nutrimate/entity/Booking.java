@@ -43,6 +43,9 @@ public class Booking {
     @Column(name = "final_price")
     private BigDecimal finalPrice;
 
+    @Column(columnDefinition = "TEXT")
+    private String note;
+    
     @Enumerated(EnumType.STRING)
     private BookingStatus status;
 
@@ -50,6 +53,10 @@ public class Booking {
     private String meetingLink;
 
     public enum BookingStatus {
-        Pending, Confirmed, Completed, Cancelled
+        PENDING,
+        CONFIRMED,
+        REJECTED,
+        COMPLETED,
+        CANCELLED
     }
 }

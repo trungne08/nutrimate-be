@@ -10,6 +10,7 @@ import com.nutrimate.repository.ExpertProfileRepository;
 import com.nutrimate.exception.BadRequestException;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.transaction.Transactional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -110,6 +111,7 @@ public class AdminController {
 
     @Operation(summary = "Approve or Reject Expert (Status: APPROVED / REJECTED)")
     @PutMapping("/experts/{id}/approve")
+    @Transactional
     public ResponseEntity<?> approveExpert(
             @PathVariable String id, 
             @RequestBody ExpertApproveRequest request) { // 👈 Đã sửa chỗ này

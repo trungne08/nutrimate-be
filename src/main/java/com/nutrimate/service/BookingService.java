@@ -1,10 +1,13 @@
 package com.nutrimate.service;
 
 import com.nutrimate.dto.BookingRequestDTO;
+import com.nutrimate.dto.BookingStatusDTO;
 import com.nutrimate.dto.PriceCheckResponseDTO;
 import com.nutrimate.entity.*;
+import com.nutrimate.entity.Booking.BookingStatus;
 import com.nutrimate.exception.ForbiddenException;
 import com.nutrimate.exception.ResourceNotFoundException;
+import com.nutrimate.exception.BadRequestException;
 import com.nutrimate.repository.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -14,7 +17,6 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
-
 @Service
 @RequiredArgsConstructor
 public class BookingService {
@@ -83,7 +85,7 @@ public class BookingService {
         booking.setOriginalPrice(priceCheck.getOriginalPrice());
         booking.setFinalPrice(priceCheck.getFinalPrice());
         booking.setIsFreeSession(priceCheck.isFreeSession());
-        booking.setStatus(Booking.BookingStatus.Pending);
+        booking.setStatus(Booking.BookingStatus.PENDING);
         booking.setMeetingLink(null);
 
         return bookingRepository.save(booking);
@@ -106,25 +108,70 @@ public class BookingService {
 
     // 5.6 UPDATE TRẠNG THÁI (Cho Expert)
     @Transactional
-    public Booking updateStatus(String bookingId, String expertUserId, String statusStr) {
+    // Sửa tham số nhận vào: Dùng DTO để nhận cả Status và Note
+    public Booking updateStatus(String userId, String bookingId, BookingStatusDTO req) {
+        
+        // 1. Tìm Booking
         Booking booking = bookingRepository.findById(bookingId)
                 .orElseThrow(() -> new ResourceNotFoundException("Booking not found"));
 
-        if (!booking.getExpert().getId().equals(expertUserId)) {
+        // 2. TỪ USER ID -> TÌM RA EXPERT ID (Fix lỗi so sánh ID sai)
+        ExpertProfile expert = expertProfileRepository.findByUserId(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Bạn không phải là Expert!"));
+
+        // 3. Check quyền (Chỉ Expert chủ sở hữu mới được sửa)
+        if (!booking.getExpert().getId().equals(expert.getId())) {
+             // Dùng Custom Exception của bạn
             throw new ForbiddenException("Unauthorized: You are not the expert assigned to this booking");
         }
 
-        try {
-            Booking.BookingStatus status = Booking.BookingStatus.valueOf(statusStr.toUpperCase());
-            booking.setStatus(status);
+        Booking.BookingStatus currentStatus = booking.getStatus();
+        Booking.BookingStatus newStatus = req.getStatus(); // Lấy từ DTO
 
-            if (status == Booking.BookingStatus.Confirmed) {
+        // 4. LOGIC STATE MACHINE (Chặn đổi trạng thái lung tung)
+        switch (newStatus) {
+            case CONFIRMED:
+                if (currentStatus != Booking.BookingStatus.PENDING) {
+                    throw new BadRequestException("Chỉ có thể chấp nhận lịch đang chờ (Pending).");
+                }
+                // 👇 GIỮ LẠI LOGIC TẠO LINK CỦA BẠN (Rất hay)
                 booking.setMeetingLink("https://meet.google.com/gen-link-" + booking.getId());
-            }
-        } catch (IllegalArgumentException e) {
-            throw new ForbiddenException("Invalid status: " + statusStr);
+                break;
+
+            case REJECTED:
+                if (currentStatus != Booking.BookingStatus.PENDING) {
+                    throw new BadRequestException("Lịch đã xử lý rồi, không thể từ chối nữa.");
+                }
+                // Check lý do
+                if (req.getNote() == null || req.getNote().trim().isEmpty()) {
+                    throw new BadRequestException("Vui lòng nhập lý do từ chối!");
+                }
+                booking.setNote(req.getNote());
+                break;
+
+            case COMPLETED:
+                if (currentStatus != Booking.BookingStatus.CONFIRMED) {
+                    throw new BadRequestException("Chỉ có thể hoàn thành lịch đã được xác nhận.");
+                }
+                break;
+
+            case CANCELLED:
+                // Expert hủy kèo
+                if (currentStatus == Booking.BookingStatus.COMPLETED || currentStatus == Booking.BookingStatus.REJECTED) {
+                    throw new BadRequestException("Lịch đã kết thúc, không thể hủy.");
+                }
+                if (req.getNote() == null || req.getNote().trim().isEmpty()) {
+                    throw new BadRequestException("Vui lòng nhập lý do hủy!");
+                }
+                booking.setNote(req.getNote());
+                break;
+
+            default:
+                throw new BadRequestException("Trạng thái không hợp lệ.");
         }
 
+        // 5. Cập nhật trạng thái và lưu
+        booking.setStatus(newStatus);
         return bookingRepository.save(booking);
     }
 

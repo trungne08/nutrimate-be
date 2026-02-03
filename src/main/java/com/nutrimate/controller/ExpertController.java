@@ -1,5 +1,6 @@
 package com.nutrimate.controller;
 
+import com.nutrimate.dto.BookingStatusDTO;
 import com.nutrimate.dto.ExpertApplicationDTO;
 import com.nutrimate.entity.Booking;
 import com.nutrimate.entity.ExpertProfile;
@@ -126,5 +127,18 @@ public class ExpertController {
         String userId = getCurrentUserId(authentication);
         
         return ResponseEntity.ok(expertService.submitApplication(userId, dto, certificateFile));
+    }
+
+    @Operation(summary = "[Expert] Cập nhật trạng thái lịch hẹn")
+    @PutMapping("/bookings/{bookingId}/status")
+    public ResponseEntity<Booking> updateStatus(
+            @PathVariable String bookingId,
+            @RequestBody BookingStatusDTO req, // DTO chứa status + note
+            @Parameter(hidden = true) Authentication authentication) {
+        
+        String userId = getCurrentUserId(authentication);
+        
+        // Gọi hàm service đã nâng cấp
+        return ResponseEntity.ok(bookingService.updateStatus(userId, bookingId, req));
     }
 }

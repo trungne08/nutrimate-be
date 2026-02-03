@@ -77,17 +77,6 @@ public class BookingController {
         return ResponseEntity.ok(bookingService.getMyBookings(getCurrentUserId(authentication)));
     }
 
-    @Operation(summary = "[Expert] Confirm/Cancel booking")
-    @PutMapping("/bookings/{id}/status")
-    @PreAuthorize("hasRole('EXPERT')")
-    public ResponseEntity<Booking> updateStatus(
-            @PathVariable String id,
-            @RequestBody BookingStatusDTO statusDTO,
-            @Parameter(hidden = true) Authentication authentication) {
-        
-        return ResponseEntity.ok(bookingService.updateStatus(id, getCurrentUserId(authentication), statusDTO.getStatus()));
-    }
-
     @Operation(summary = "[Admin] View all bookings")
     @GetMapping("/admin/bookings")
     @PreAuthorize("hasRole('ADMIN')")
