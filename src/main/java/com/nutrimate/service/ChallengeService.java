@@ -44,12 +44,18 @@ public class ChallengeService {
     public Challenge updateChallenge(String id, ChallengeDTO.CreateRequest req) throws IOException {
         Challenge challenge = challengeRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Challenge not found"));
-        
+
         challenge.setTitle(req.getTitle());
         challenge.setDescription(req.getDescription());
         challenge.setDurationDays(req.getDurationDays());
+<<<<<<< HEAD
         if (req.getLevel() != null) challenge.setLevel(req.getLevel());
         setChallengeImage(challenge, req);
+=======
+        if (req.getLevel() != null)
+            challenge.setLevel(req.getLevel());
+
+>>>>>>> 3fca325 (thêm api check in challenge cho member)
         return challengeRepository.save(challenge);
     }
 
@@ -71,35 +77,63 @@ public class ChallengeService {
     }
 
     @Transactional
-    public UserChallenge joinChallenge(String userId, String challengeId) {
-        if (userChallengeRepository.findByUserIdAndChallengeId(userId, challengeId).isPresent()) {
-            throw new BadRequestException("You have already joined this challenge!");
+    public void joinChallenge(String userId, String challengeId) {
+        var existing = userChallengeRepository.findByUserIdAndChallengeIdAndStatus(
+                userId, challengeId, UserChallenge.ChallengeStatus.IN_PROGRESS);
+
+        if (existing.isPresent()) {
+            throw new RuntimeException("You have already joined this challenge!");
         }
 
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+                .orElseThrow(() -> new RuntimeException("User not found"));
         Challenge challenge = challengeRepository.findById(challengeId)
-                .orElseThrow(() -> new ResourceNotFoundException("Challenge not found"));
+                .orElseThrow(() -> new RuntimeException("Challenge not found"));
 
         UserChallenge uc = new UserChallenge();
         uc.setUser(user);
         uc.setChallenge(challenge);
         uc.setJoinDate(LocalDate.now());
-        uc.setStatus(UserChallenge.ChallengeStatus.IN_PROGRESS);
         uc.setDaysCompleted(0);
+        uc.setStatus(UserChallenge.ChallengeStatus.IN_PROGRESS);
 
-        return userChallengeRepository.save(uc);
+        userChallengeRepository.save(uc);
+    }
+
+    @Transactional
+    public void checkInChallenge(String userId, String challengeId) {
+        UserChallenge uc = userChallengeRepository.findByUserIdAndChallengeId(userId, challengeId)
+                .orElseThrow(() -> new RuntimeException("Bạn chưa tham gia thử thách này"));
+
+        if (uc.getStatus() != UserChallenge.ChallengeStatus.IN_PROGRESS) {
+            throw new RuntimeException("Thử thách này đã kết thúc hoặc đã hoàn thành.");
+        }
+
+        int totalDays = uc.getChallenge().getDurationDays();
+
+        // Tăng số ngày hoàn thành
+        if (uc.getDaysCompleted() < totalDays) {
+            uc.setDaysCompleted(uc.getDaysCompleted() + 1);
+        }
+
+        if (uc.getDaysCompleted() >= totalDays) {
+            uc.setStatus(UserChallenge.ChallengeStatus.COMPLETED);
+        }
+
+        userChallengeRepository.save(uc);
     }
 
     // 8.6 [MEMBER] Xem thử thách của tôi (Kèm tiến độ)
     public List<ChallengeDTO.Response> getMyChallenges(String userId) {
+        // 1. Lấy danh sách từ DB
         List<UserChallenge> myChallenges = userChallengeRepository.findByUserId(userId);
 
+        // 2. Map sang DTO
         return myChallenges.stream().map(uc -> {
             ChallengeDTO.Response dto = new ChallengeDTO.Response();
             Challenge c = uc.getChallenge();
-            
-            // Info thử thách
+
+            // --- Mapping thông tin chung ---
             dto.setId(c.getId());
             dto.setTitle(c.getTitle());
             dto.setDescription(c.getDescription());
@@ -107,11 +141,20 @@ public class ChallengeService {
             dto.setLevel(c.getLevel().name());
             dto.setImageUrl(c.getImageUrl());
 
-            // Info cá nhân
-            dto.setJoined(true);
+            // --- Mapping thông tin cá nhân ---
+            dto.setJoined(true); // Đã nằm trong list này thì chắc chắn là joined rồi
             dto.setDaysCompleted(uc.getDaysCompleted());
             dto.setStatus(uc.getStatus().name());
-            
+
+            // 👇 LOGIC TÍNH PHẦN TRĂM (FIX LỖI CHIA CHO 0)
+            if (c.getDurationDays() != null && c.getDurationDays() > 0) {
+                int percent = (int) ((double) uc.getDaysCompleted() / c.getDurationDays() * 100);
+                // Đảm bảo không vượt quá 100%
+                dto.setProgressPercent(Math.min(percent, 100));
+            } else {
+                dto.setProgressPercent(0);
+            }
+
             return dto;
         }).collect(Collectors.toList());
     }

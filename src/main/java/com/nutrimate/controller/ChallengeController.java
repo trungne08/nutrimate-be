@@ -1,6 +1,7 @@
 package com.nutrimate.controller;
 
 import com.nutrimate.dto.ChallengeDTO;
+import com.nutrimate.dto.UserChallengeDTO;
 import com.nutrimate.entity.Challenge;
 import com.nutrimate.entity.User;
 import com.nutrimate.entity.UserChallenge;
@@ -18,10 +19,10 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.core.oidc.user.OidcUser;
 import org.springframework.security.oauth2.core.user.OAuth2User;
-import org.springframework.web.bind.annotation.*;
 import org.springframework.http.MediaType;
-
 import jakarta.validation.Valid;
+import org.springframework.web.bind.annotation.*;
+import java.util.Map;
 import java.util.List;
 
 @RestController
@@ -81,19 +82,24 @@ public class ChallengeController {
     @Operation(summary = "Join a challenge")
     @PostMapping("/challenges/{id}/join")
     @PreAuthorize("hasRole('MEMBER')")
-    public ResponseEntity<UserChallenge> joinChallenge(
-            @PathVariable String id,
-            @Parameter(hidden = true) Authentication authentication) {
-        
-        return ResponseEntity.ok(challengeService.joinChallenge(getCurrentUserId(authentication), id));
+    public ResponseEntity<?> joinChallenge(@PathVariable String id, Authentication auth) {
+        String userId = getCurrentUserId(auth);
+        challengeService.joinChallenge(userId, id);
+        return ResponseEntity.ok(Map.of("message", "Participated in the challenge successfully!"));
     }
 
     @Operation(summary = "View my joined challenges & progress")
     @GetMapping("/challenges/my-challenges")
     @PreAuthorize("hasRole('MEMBER')")
-    public ResponseEntity<List<ChallengeDTO.Response>> getMyChallenges(
-            @Parameter(hidden = true) Authentication authentication) {
-        
-        return ResponseEntity.ok(challengeService.getMyChallenges(getCurrentUserId(authentication)));
+    public ResponseEntity<List<ChallengeDTO.Response>> getMyChallenges(Authentication auth) {
+        String userId = getCurrentUserId(auth);
+        return ResponseEntity.ok(challengeService.getMyChallenges(userId));
+    }
+
+    @PostMapping("/challenges/{id}/check-in")
+    public ResponseEntity<?> checkIn(@PathVariable String id, Authentication auth) {
+        String userId = getCurrentUserId(auth);
+        challengeService.checkInChallenge(userId, id);
+        return ResponseEntity.ok(Map.of("message", "Registration successful! Keep going!"));
     }
 }

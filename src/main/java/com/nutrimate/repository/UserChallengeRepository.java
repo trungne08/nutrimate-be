@@ -1,6 +1,8 @@
 package com.nutrimate.repository;
 
 import com.nutrimate.entity.UserChallenge;
+import com.nutrimate.entity.UserChallenge.ChallengeStatus;
+
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 import java.util.Optional;
@@ -12,4 +14,10 @@ public interface UserChallengeRepository extends JpaRepository<UserChallenge, St
     List<UserChallenge> findByUserId(String userId);
 
     Optional<UserChallenge> findByUserIdAndChallengeId(String userId, String challengeId);
+    
+    Optional<UserChallenge> findByUserIdAndChallengeIdAndStatus(
+        String userId, 
+        String challengeId, 
+        ChallengeStatus status
+    );
 }

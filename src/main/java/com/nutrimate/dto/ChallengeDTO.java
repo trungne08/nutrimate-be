@@ -10,9 +10,11 @@ public class ChallengeDTO {
     // Request tạo mới / cập nhật (multipart/form-data để upload hình)
     @Data
     public static class CreateRequest {
-        @NotNull private String title;
+        @NotNull
+        private String title;
         private String description;
-        @NotNull private Integer durationDays;
+        @NotNull
+        private Integer durationDays;
         private Challenge.ChallengeLevel level;
         private MultipartFile imageFile;  // Upload file hình (ưu tiên)
         private String imageUrl;          // Hoặc truyền URL sẵn (nếu không có file)
@@ -26,11 +28,18 @@ public class ChallengeDTO {
         private String description;
         private Integer durationDays;
         private String level;
+<<<<<<< HEAD
         private String imageUrl;
         
         // Thông tin riêng của User (nếu có)
         private boolean isJoined;
         private Integer daysCompleted;
+=======
+
+        private boolean joined; // Đã tham gia chưa?
+        private Integer daysCompleted; // Đã làm được bao nhiêu ngày
+        private Integer progressPercent; // % hoàn thành (0-100)
+>>>>>>> 3fca325 (thêm api check in challenge cho member)
         private String status;
     }
 }
