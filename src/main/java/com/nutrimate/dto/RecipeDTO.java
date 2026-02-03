@@ -2,6 +2,7 @@ package com.nutrimate.dto;
 
 import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
+import org.springframework.web.multipart.MultipartFile;
 
 @Data
 public class RecipeDTO {
@@ -17,6 +18,11 @@ public class RecipeDTO {
      * Upload file thì dùng field multipart tên "imageFile" ở API create/update.
      */
     private String imageUrl;
+    /**
+     * Optional: upload file ảnh (multipart/form-data).
+     * Field name: imageFile
+     */
+    private MultipartFile imageFile;
     private Integer prepTimeMinutes;
     
     // Dinh dưỡng

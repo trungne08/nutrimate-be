@@ -24,7 +24,6 @@ import org.springframework.security.oauth2.core.oidc.user.OidcUser;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.http.MediaType;
-import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/api/recipes")
@@ -86,10 +85,9 @@ public class RecipeController {
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE) // Quan trọng: Báo là nhận Form Data
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Recipe> createRecipe(
-            @ModelAttribute @Valid RecipeDTO recipeDTO, // Dùng ModelAttribute để hứng các field text (title, calories...)
-            @RequestParam(value = "imageFile", required = false) MultipartFile imageFile // Hứng file ảnh
+            @ModelAttribute @Valid RecipeDTO recipeDTO // Dùng ModelAttribute để hứng cả field text + imageFile
     ) {
-        return ResponseEntity.ok(recipeService.createRecipe(recipeDTO, imageFile));
+        return ResponseEntity.ok(recipeService.createRecipe(recipeDTO, recipeDTO.getImageFile()));
     }
 
     // 👇 SỬA API UPDATE (ADMIN)
@@ -98,10 +96,9 @@ public class RecipeController {
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Recipe> updateRecipe(
             @PathVariable String id,
-            @ModelAttribute @Valid RecipeDTO recipeDTO,
-            @RequestParam(value = "imageFile", required = false) MultipartFile imageFile
+            @ModelAttribute @Valid RecipeDTO recipeDTO
     ) {
-        return ResponseEntity.ok(recipeService.updateRecipe(id, recipeDTO, imageFile));
+        return ResponseEntity.ok(recipeService.updateRecipe(id, recipeDTO, recipeDTO.getImageFile()));
     }
 
     @Operation(summary = "[Admin] Delete recipe")
