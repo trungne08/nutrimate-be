@@ -36,19 +36,22 @@ public class RecipeController {
     // Helper
     private String getCurrentUserId(Authentication authentication) {
         if (authentication == null || !authentication.isAuthenticated()) {
-            throw new BadRequestException("Vui lòng đăng nhập để xem công thức");
+            return null;
         }
+
         String email = null;
         Object principal = authentication.getPrincipal();
-        if (principal instanceof Jwt) email = ((Jwt) principal).getClaimAsString("email");
-        else if (principal instanceof OidcUser) email = ((OidcUser) principal).getEmail();
-        else if (principal instanceof OAuth2User) email = ((OAuth2User) principal).getAttribute("email");
-
-        if (email == null) throw new BadRequestException("Token không hợp lệ");
-
+        if (principal instanceof Jwt)
+            email = ((Jwt) principal).getClaimAsString("email");
+        else if (principal instanceof OidcUser)
+            email = ((OidcUser) principal).getEmail();
+        else if (principal instanceof OAuth2User)
+            email = ((OAuth2User) principal).getAttribute("email");
+        if (email == null)
+            return null;
         return userRepository.findByEmail(email)
                 .map(User::getId)
-                .orElseThrow(() -> new ResourceNotFoundException("User không tồn tại"));
+                .orElse(null);
     }
 
     // 4.1 Search Public
@@ -60,23 +63,36 @@ public class RecipeController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(defaultValue = "id") String sortBy) {
-        
+
         Pageable pageable = PageRequest.of(page, size, Sort.by(sortBy).descending());
         return ResponseEntity.ok(recipeService.getRecipes(keyword, maxCal, pageable));
     }
 
     // 4.2 Detail (Có check limit)
-    @Operation(summary = "Get recipe detail (Limit 5/day for Free users)")
+    @Operation(summary = "Get recipe detail (Public)")
     @GetMapping("/{id}")
-    public ResponseEntity<Recipe> getRecipeById(
-            @PathVariable String id,
-            @Parameter(hidden = true) Authentication authentication) {
+    public ResponseEntity<?> getRecipeDetail(@PathVariable String id, Authentication authentication) {
 
-        // Gọi helper để lấy ID (nếu chưa login sẽ throw 400/404 tự động)
-        String userId = getCurrentUserId(authentication);
+        // 1. Mặc định coi như là khách/user thường
+        boolean isVip = false;
+        String userId = null;
 
-        // Service sẽ tự throw ForbiddenException nếu quá giới hạn
-        return ResponseEntity.ok(recipeService.getRecipeById(id, userId));
+        if (authentication != null && authentication.isAuthenticated()) {
+            userId = getCurrentUserId(authentication);
+
+            // 2. Kiểm tra xem có phải Admin hoặc Expert không?
+            isVip = authentication.getAuthorities().stream()
+                    .anyMatch(role -> role.getAuthority().equals("ADMIN")
+                            || role.getAuthority().equals("EXPERT"));
+        }
+        Recipe recipe;
+        if (isVip) {
+            recipe = recipeService.getRecipeById(id);
+        } else {
+            recipe = recipeService.getRecipeById(id, userId);
+        }
+
+        return ResponseEntity.ok(recipe);
     }
 
     // --- ADMIN APIs ---
@@ -84,8 +100,7 @@ public class RecipeController {
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Recipe> createRecipe(
-            @ModelAttribute RecipeDTO recipeDTO
-    ) {
+            @ModelAttribute RecipeDTO recipeDTO) {
         return ResponseEntity.ok(recipeService.createRecipe(recipeDTO, recipeDTO.getImageFile()));
     }
 
@@ -94,8 +109,7 @@ public class RecipeController {
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Recipe> updateRecipe(
             @PathVariable String id,
-            @ModelAttribute RecipeDTO recipeDTO
-    ) {
+            @ModelAttribute RecipeDTO recipeDTO) {
         return ResponseEntity.ok(recipeService.updateRecipe(id, recipeDTO, recipeDTO.getImageFile()));
     }
 

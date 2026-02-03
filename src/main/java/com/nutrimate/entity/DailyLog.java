@@ -1,13 +1,20 @@
 package com.nutrimate.entity;
 
 import jakarta.persistence.*;
-import lombok.Data;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
 import java.time.LocalDate;
-import java.util.List;
+
 
 @Entity
 @Table(name = "`Daily_Logs`")
-@Data
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
 public class DailyLog {
     
     @Id

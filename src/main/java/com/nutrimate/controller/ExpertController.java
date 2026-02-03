@@ -24,6 +24,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/experts")
@@ -51,13 +52,14 @@ public class ExpertController {
         return ResponseEntity.ok(expertService.getExpertById(id));
     }
 
-    @Operation(summary = "[Expert/Admin] Xem danh sách booking của mình")
+    @Operation(summary = "[Expert] Xem danh sách booking của mình")
     @GetMapping("/my-bookings")
-    @PreAuthorize("hasAnyRole('EXPERT','ADMIN')")
-    public ResponseEntity<List<Booking>> getMyBookings(
-            @Parameter(hidden = true) Authentication authentication) {
-        String expertUserId = getCurrentUserId(authentication);
-        return ResponseEntity.ok(bookingService.getMyExpertBookings(expertUserId));
+    public ResponseEntity<List<Booking>> getMyBookings(Authentication authentication) {
+        // 👇 Thêm dòng này để test
+        System.out.println("DEBUG: Đã vào được Controller /my-bookings"); 
+
+        String userId = getCurrentUserId(authentication);
+        return ResponseEntity.ok(expertService.getMyExpertBookings(userId));
     }
 
     private String getCurrentUserId(Authentication authentication) {
@@ -65,24 +67,42 @@ public class ExpertController {
             throw new BadRequestException("Vui lòng đăng nhập để thực hiện chức năng này");
         }
 
-        String email = null;
         Object principal = authentication.getPrincipal();
+        String cognitoId = null;
+        String email = null;
 
+        // 1. Lấy thông tin từ Token
         if (principal instanceof Jwt) {
-            email = ((Jwt) principal).getClaimAsString("email");
+            Jwt jwt = (Jwt) principal;
+            cognitoId = jwt.getClaimAsString("sub"); // Lấy UUID (luôn có)
+            email = jwt.getClaimAsString("email");   // Có thể null trong Access Token
         } else if (principal instanceof OidcUser) {
-            email = ((OidcUser) principal).getEmail();
+            OidcUser oidcUser = (OidcUser) principal;
+            cognitoId = oidcUser.getName(); // Thường là sub
+            email = oidcUser.getEmail();
         } else if (principal instanceof OAuth2User) {
-            email = ((OAuth2User) principal).getAttribute("email");
+            OAuth2User oauth2User = (OAuth2User) principal;
+            cognitoId = oauth2User.getName();
+            email = oauth2User.getAttribute("email");
         }
 
-        if (email == null) {
-            throw new BadRequestException("Token không hợp lệ (Không tìm thấy email)");
+        // 2. Ưu tiên tìm bằng Cognito ID (Chính xác nhất)
+        if (cognitoId != null) {
+            Optional<User> userByCognito = userRepository.findByCognitoId(cognitoId);
+            if (userByCognito.isPresent()) {
+                return userByCognito.get().getId();
+            }
         }
 
-        return userRepository.findByEmail(email)
-                .map(User::getId)
-                .orElseThrow(() -> new ResourceNotFoundException("User không tồn tại"));
+        // 3. Nếu không tìm thấy bằng Cognito ID thì mới fallback sang Email
+        if (email != null) {
+            String finalEmail = email; // biến final để dùng trong lambda
+            return userRepository.findByEmail(finalEmail)
+                    .map(User::getId)
+                    .orElseThrow(() -> new ResourceNotFoundException("User không tồn tại (Email: " + finalEmail + ")"));
+        }
+
+        throw new BadRequestException("Token không hợp lệ (Không tìm thấy sub/email)");
     }
     
     @Operation(summary = "Apply to become an Expert")

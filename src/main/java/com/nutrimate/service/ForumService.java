@@ -4,7 +4,11 @@ import com.nutrimate.dto.ForumDTO;
 import com.nutrimate.entity.*;
 import com.nutrimate.exception.BadRequestException;
 import com.nutrimate.exception.ForbiddenException;
+import com.nutrimate.exception.AccessDeniedException;
 import com.nutrimate.exception.ResourceNotFoundException;
+import com.nutrimate.service.FileUploadService;
+import com.nutrimate.repository.CommentRepository;
+import com.nutrimate.repository.PostLikeRepository;
 import com.nutrimate.repository.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -13,7 +17,6 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
-
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -168,32 +171,62 @@ public class ForumService {
 
     // 10.7 Add Comment
     @Transactional
-    public ForumDTO.CommentResponse addComment(String userId, String postId, String content, MultipartFile file) {
+    public ForumDTO.CommentResponse createComment(String userId, String postId, ForumDTO.CommentRequest request) {
+        // 1. Tìm User và Post
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+        
         Post post = postRepository.findById(postId)
                 .orElseThrow(() -> new ResourceNotFoundException("Post not found"));
 
+        // 2. Tạo Entity Comment
         Comment comment = new Comment();
-        comment.setPost(post);
         comment.setUser(user);
-        comment.setContent(content);
-        
-        if (file != null && !file.isEmpty()) {
+        comment.setPost(post);
+        comment.setContent(request.getContent());
+        comment.setCreatedAt(LocalDateTime.now()); // Nếu entity không tự gen
+
+        // 3. XỬ LÝ ẢNH (Nếu có upload)
+        if (request.getFile() != null && !request.getFile().isEmpty()) {
             try {
-                String url = fileUploadService.uploadFile(file);
-                comment.setImageUrl(url);
-            } catch (IOException e) {
-                throw new BadRequestException("Comment image upload failed: " + e.getMessage());
+                String imageUrl = fileUploadService.uploadFile(request.getFile());
+                comment.setImageUrl(imageUrl);
+            } catch (Exception e) {
+                throw new RuntimeException("Lỗi upload ảnh comment: " + e.getMessage());
             }
         }
-        
-        commentRepository.save(comment);
 
-        post.setCommentCount(post.getCommentCount() + 1);
-        postRepository.save(post);
+        // 4. Lưu và trả về
+        Comment savedComment = commentRepository.save(comment);
+        return mapToCommentDTO(savedComment);
+    }
 
-        return mapToCommentDTO(comment);
+    @Transactional
+    public ForumDTO.CommentResponse updateComment(String userId, String commentId, ForumDTO.UpdateCommentRequest request) {
+
+        Comment comment = commentRepository.findById(commentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy bình luận"));
+
+
+        if (!comment.getUser().getId().equals(userId)) {
+            throw new AccessDeniedException("Bạn không có quyền chỉnh sửa bình luận này");
+        }
+        if (request.getContent() != null) {
+            comment.setContent(request.getContent());
+        }
+        MultipartFile file = request.getFile();
+        if (file != null && !file.isEmpty()) {
+            try {
+                String newImageUrl = fileUploadService.uploadFile(file);
+                comment.setImageUrl(newImageUrl); 
+            } catch (Exception e) {
+                throw new RuntimeException("Lỗi upload ảnh comment: " + e.getMessage());
+            }
+        }
+
+        // 5. Lưu và trả về
+        Comment savedComment = commentRepository.save(comment);
+        return mapToCommentDTO(savedComment);
     }
 
     // 10.8 Delete Comment

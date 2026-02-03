@@ -2,7 +2,10 @@ package com.nutrimate.entity;
 
 import com.fasterxml.jackson.annotation.JsonIgnore; // 👉 Import dòng này
 import jakarta.persistence.*;
-import lombok.Data;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 import lombok.ToString;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -10,7 +13,10 @@ import java.util.List;
 
 @Entity
 @Table(name = "`Posts`")
-@Data
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
 public class Post {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)

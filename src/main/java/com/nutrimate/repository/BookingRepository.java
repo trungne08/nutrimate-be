@@ -18,4 +18,6 @@ public interface BookingRepository extends JpaRepository<Booking, String> {
 
     @Query("SELECT b FROM Booking b WHERE :date IS NULL OR DATE(b.bookingTime) = :date")
     List<Booking> findAllByDate(LocalDate date);
+
+    List<Booking> findByExpertId(String expertId);
 }

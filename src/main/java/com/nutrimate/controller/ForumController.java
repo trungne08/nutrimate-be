@@ -92,7 +92,7 @@ public class ForumController {
     // 10.3 Create Post
     @Operation(summary = "Create new post (Text + Image)")
     @PostMapping(value = "/posts", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @PreAuthorize("hasRole('MEMBER')")
+    @PreAuthorize("hasAnyRole('MEMBER', 'EXPERT', 'ADMIN')")
     public ResponseEntity<ForumDTO.PostResponse> createPost(
             @RequestParam("content") String content,
             @RequestParam(value = "file", required = false) MultipartFile file,
@@ -104,7 +104,7 @@ public class ForumController {
     // 10.4 Update Post
     @Operation(summary = "Update post (Text + Image)")
     @PutMapping(value = "/posts/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @PreAuthorize("hasRole('MEMBER')")
+    @PreAuthorize("hasAnyRole('MEMBER', 'EXPERT', 'ADMIN')")
     public ResponseEntity<ForumDTO.PostResponse> updatePost(
             @PathVariable String id,
             @RequestParam("content") String content,
@@ -117,7 +117,7 @@ public class ForumController {
     // 10.5 Delete Post
     @Operation(summary = "Delete post (Owner only)")
     @DeleteMapping("/posts/{id}")
-    @PreAuthorize("hasRole('MEMBER')")
+    @PreAuthorize("hasAnyRole('MEMBER', 'EXPERT', 'ADMIN')")
     public ResponseEntity<String> deletePost(
             @PathVariable String id,
             @Parameter(hidden = true) Authentication authentication) {
@@ -129,7 +129,7 @@ public class ForumController {
     // 10.6 Toggle Like
     @Operation(summary = "Toggle Like/Unlike post")
     @PostMapping("/posts/{id}/like")
-    @PreAuthorize("hasRole('MEMBER')")
+    @PreAuthorize("hasAnyRole('MEMBER', 'EXPERT', 'ADMIN')")
     public ResponseEntity<String> toggleLike(
             @PathVariable String id,
             @Parameter(hidden = true) Authentication authentication) {
@@ -139,22 +139,41 @@ public class ForumController {
     }
 
     // 10.7 Add Comment
-    @Operation(summary = "Add comment (Text + Image)")
-    @PostMapping(value = "/posts/{id}/comments", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @PreAuthorize("hasRole('MEMBER')")
-    public ResponseEntity<ForumDTO.CommentResponse> addComment(
-            @PathVariable String id,
-            @RequestParam("content") String content,
-            @RequestParam(value = "file", required = false) MultipartFile file,
+    @Operation(summary = "Create a comment (Text + Image)")
+    // 👇 Thêm postId vào URL cho rõ ràng bài viết nào
+    @PostMapping(value = "/posts/{postId}/comments", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasAnyRole('MEMBER', 'EXPERT', 'ADMIN')")
+    public ResponseEntity<ForumDTO.CommentResponse> createComment(
+            @PathVariable String postId,
+            @ModelAttribute ForumDTO.CommentRequest request, // Dùng ModelAttribute để nhận file
             @Parameter(hidden = true) Authentication authentication) {
         
-        return ResponseEntity.ok(forumService.addComment(getCurrentUserId(authentication), id, content, file));
+        return ResponseEntity.ok(forumService.createComment(
+                getCurrentUserId(authentication),
+                postId,
+                request
+        ));
     }
 
+    @Operation(summary = "Update a comment (Text + Image)")
+    // 👇 Thêm consumes multipart để nhận file
+    @PutMapping(value = "/comments/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasAnyRole('MEMBER', 'EXPERT', 'ADMIN')")
+    public ResponseEntity<ForumDTO.CommentResponse> updateComment(
+            @PathVariable String id,
+            @ModelAttribute ForumDTO.UpdateCommentRequest request, // 👇 Đổi @RequestBody thành @ModelAttribute
+            @Parameter(hidden = true) Authentication authentication) {
+        
+        return ResponseEntity.ok(forumService.updateComment(
+                getCurrentUserId(authentication), 
+                id, 
+                request // Truyền cả object request vào service
+        ));
+    }
     // 10.8 Delete Comment
     @Operation(summary = "Delete comment (Owner only)")
     @DeleteMapping("/comments/{id}")
-    @PreAuthorize("hasRole('MEMBER')")
+    @PreAuthorize("hasAnyRole('MEMBER', 'EXPERT', 'ADMIN')")
     public ResponseEntity<String> deleteComment(
             @PathVariable String id,
             @Parameter(hidden = true) Authentication authentication) {

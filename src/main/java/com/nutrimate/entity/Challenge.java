@@ -1,11 +1,17 @@
 package com.nutrimate.entity;
 
 import jakarta.persistence.*;
-import lombok.Data;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 @Entity
 @Table(name = "`Challenges`") // Dùng backtick để match đúng bảng Challenges trong MySQL, tránh bị hạ thành 'challenges'
-@Data
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
 public class Challenge {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)

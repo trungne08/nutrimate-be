@@ -1,11 +1,17 @@
 package com.nutrimate.entity;
 
 import jakarta.persistence.*;
-import lombok.Data;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 @Entity
 @Table(name = "`Post_Likes`")
-@Data
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
 public class PostLike {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)

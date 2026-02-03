@@ -5,6 +5,8 @@ import lombok.Data;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import org.springframework.web.multipart.MultipartFile;
+
 public class ForumDTO {
 
     // Request tạo/sửa bài viết
@@ -18,6 +20,7 @@ public class ForumDTO {
     @Data
     public static class CommentRequest {
         private String content;
+        private MultipartFile file;
     }
 
     // Response bài viết (Newsfeed)
@@ -55,5 +58,12 @@ public class ForumDTO {
         private String content;
         private String imageUrl;
         private LocalDateTime createdAt;
+    }
+
+    @Data
+    @Builder
+    public static class UpdateCommentRequest {
+        private String content;
+        private MultipartFile file;
     }
 }
