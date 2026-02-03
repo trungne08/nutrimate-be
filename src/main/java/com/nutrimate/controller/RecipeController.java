@@ -10,12 +10,12 @@ import com.nutrimate.service.RecipeService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
@@ -23,7 +23,6 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.core.oidc.user.OidcUser;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.http.MediaType;
 
 @RestController
 @RequestMapping("/api/recipes")
@@ -82,21 +81,20 @@ public class RecipeController {
 
     // --- ADMIN APIs ---
     @Operation(summary = "[Admin] Create new recipe with Image")
-    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE) // Quan trọng: Báo là nhận Form Data
+    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Recipe> createRecipe(
-            @ModelAttribute @Valid RecipeDTO recipeDTO // Dùng ModelAttribute để hứng cả field text + imageFile
+            @ModelAttribute RecipeDTO recipeDTO
     ) {
         return ResponseEntity.ok(recipeService.createRecipe(recipeDTO, recipeDTO.getImageFile()));
     }
 
-    // 👇 SỬA API UPDATE (ADMIN)
     @Operation(summary = "[Admin] Update recipe with Image")
     @PutMapping(value = "/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Recipe> updateRecipe(
             @PathVariable String id,
-            @ModelAttribute @Valid RecipeDTO recipeDTO
+            @ModelAttribute RecipeDTO recipeDTO
     ) {
         return ResponseEntity.ok(recipeService.updateRecipe(id, recipeDTO, recipeDTO.getImageFile()));
     }
