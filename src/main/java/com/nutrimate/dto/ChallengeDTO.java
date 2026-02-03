@@ -28,18 +28,10 @@ public class ChallengeDTO {
         private String description;
         private Integer durationDays;
         private String level;
-<<<<<<< HEAD
-        private String imageUrl;
-        
-        // Thông tin riêng của User (nếu có)
-        private boolean isJoined;
-        private Integer daysCompleted;
-=======
 
         private boolean joined; // Đã tham gia chưa?
         private Integer daysCompleted; // Đã làm được bao nhiêu ngày
         private Integer progressPercent; // % hoàn thành (0-100)
->>>>>>> 3fca325 (thêm api check in challenge cho member)
         private String status;
     }
 }

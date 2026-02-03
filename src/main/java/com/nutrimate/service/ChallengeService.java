@@ -48,14 +48,9 @@ public class ChallengeService {
         challenge.setTitle(req.getTitle());
         challenge.setDescription(req.getDescription());
         challenge.setDurationDays(req.getDurationDays());
-<<<<<<< HEAD
-        if (req.getLevel() != null) challenge.setLevel(req.getLevel());
-        setChallengeImage(challenge, req);
-=======
         if (req.getLevel() != null)
             challenge.setLevel(req.getLevel());
 
->>>>>>> 3fca325 (thêm api check in challenge cho member)
         return challengeRepository.save(challenge);
     }
 
