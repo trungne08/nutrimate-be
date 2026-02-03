@@ -30,26 +30,50 @@ public class ChallengeService {
 
     // 8.2 [ADMIN] Tạo thử thách
     @Transactional
-    public Challenge createChallenge(ChallengeDTO.CreateRequest req) throws IOException {
+    public Challenge createChallenge(ChallengeDTO.CreateRequest request) {
         Challenge challenge = new Challenge();
-        challenge.setTitle(req.getTitle());
-        challenge.setDescription(req.getDescription());
-        challenge.setDurationDays(req.getDurationDays());
-        challenge.setLevel(req.getLevel() != null ? req.getLevel() : Challenge.ChallengeLevel.EASY);
-        setChallengeImage(challenge, req);
+        challenge.setTitle(request.getTitle());
+        challenge.setDescription(request.getDescription());
+        challenge.setDurationDays(request.getDurationDays());
+        
+        // Map Level (Enum)
+        if (request.getLevel() != null) {
+            challenge.setLevel(request.getLevel());
+        }
+        if (request.getImageFile() != null && !request.getImageFile().isEmpty()) {
+            try {
+                String uploadedUrl = fileUploadService.uploadFile(request.getImageFile());
+                challenge.setImageUrl(uploadedUrl);
+            } catch (Exception e) {
+                throw new RuntimeException("Lỗi upload ảnh: " + e.getMessage());
+            }
+        } 
+        else if (request.getImageUrl() != null && !request.getImageUrl().isEmpty()) {
+            challenge.setImageUrl(request.getImageUrl());
+        }
+
         return challengeRepository.save(challenge);
     }
 
     @Transactional
-    public Challenge updateChallenge(String id, ChallengeDTO.CreateRequest req) throws IOException {
+    public Challenge updateChallenge(String id, ChallengeDTO.CreateRequest request) {
         Challenge challenge = challengeRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Challenge not found"));
-
-        challenge.setTitle(req.getTitle());
-        challenge.setDescription(req.getDescription());
-        challenge.setDurationDays(req.getDurationDays());
-        if (req.getLevel() != null)
-            challenge.setLevel(req.getLevel());
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy thử thách với ID: " + id));
+        challenge.setTitle(request.getTitle());
+        if (request.getDescription() != null) challenge.setDescription(request.getDescription());
+        if (request.getDurationDays() != null) challenge.setDurationDays(request.getDurationDays());
+        if (request.getLevel() != null) challenge.setLevel(request.getLevel());
+        if (request.getImageFile() != null && !request.getImageFile().isEmpty()) {
+            try {
+                String uploadedUrl = fileUploadService.uploadFile(request.getImageFile());
+                challenge.setImageUrl(uploadedUrl); 
+            } catch (Exception e) {
+                throw new RuntimeException("Lỗi upload ảnh khi update: " + e.getMessage());
+            }
+        } 
+        else if (request.getImageUrl() != null && !request.getImageUrl().isEmpty()) {
+            challenge.setImageUrl(request.getImageUrl());
+        }
 
         return challengeRepository.save(challenge);
     }
@@ -120,31 +144,31 @@ public class ChallengeService {
 
     // 8.6 [MEMBER] Xem thử thách của tôi (Kèm tiến độ)
     public List<ChallengeDTO.Response> getMyChallenges(String userId) {
-        // 1. Lấy danh sách từ DB
         List<UserChallenge> myChallenges = userChallengeRepository.findByUserId(userId);
 
-        // 2. Map sang DTO
         return myChallenges.stream().map(uc -> {
             ChallengeDTO.Response dto = new ChallengeDTO.Response();
             Challenge c = uc.getChallenge();
 
-            // --- Mapping thông tin chung ---
+            // Mapping thông tin chung
             dto.setId(c.getId());
             dto.setTitle(c.getTitle());
             dto.setDescription(c.getDescription());
             dto.setDurationDays(c.getDurationDays());
             dto.setLevel(c.getLevel().name());
-            dto.setImageUrl(c.getImageUrl());
+            
+            // 👇 QUAN TRỌNG: Map ảnh từ Entity sang DTO
+            // (Đảm bảo Entity Challenge có getter getImage() hoặc getImageUrl())
+            dto.setImageUrl(c.getImageUrl()); 
 
-            // --- Mapping thông tin cá nhân ---
-            dto.setJoined(true); // Đã nằm trong list này thì chắc chắn là joined rồi
+            // Mapping thông tin cá nhân
+            dto.setJoined(true);
             dto.setDaysCompleted(uc.getDaysCompleted());
             dto.setStatus(uc.getStatus().name());
 
-            // 👇 LOGIC TÍNH PHẦN TRĂM (FIX LỖI CHIA CHO 0)
+            // Tính phần trăm
             if (c.getDurationDays() != null && c.getDurationDays() > 0) {
                 int percent = (int) ((double) uc.getDaysCompleted() / c.getDurationDays() * 100);
-                // Đảm bảo không vượt quá 100%
                 dto.setProgressPercent(Math.min(percent, 100));
             } else {
                 dto.setProgressPercent(0);

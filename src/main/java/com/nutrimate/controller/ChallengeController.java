@@ -55,19 +55,22 @@ public class ChallengeController {
 
     // --- ADMIN ---
     @Operation(summary = "[Admin] Create new challenge (multipart/form-data: title, description, durationDays, level, imageFile)")
-    @PostMapping(value = "/admin/challenges", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Challenge> createChallenge(@Valid @ModelAttribute ChallengeDTO.CreateRequest req) throws java.io.IOException {
-        return ResponseEntity.ok(challengeService.createChallenge(req));
+    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasRole('ADMIN')") 
+    public ResponseEntity<Challenge> createChallenge(
+            @ModelAttribute @Valid ChallengeDTO.CreateRequest request
+    ) {
+        return ResponseEntity.ok(challengeService.createChallenge(request));
     }
 
     @Operation(summary = "[Admin] Update challenge (multipart/form-data: title, description, durationDays, level, imageFile)")
-    @PutMapping(value = "/admin/challenges/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @PreAuthorize("hasRole('ADMIN')")
+    @PutMapping(value = "/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasRole('ADMIN')") 
     public ResponseEntity<Challenge> updateChallenge(
             @PathVariable String id,
-            @Valid @ModelAttribute ChallengeDTO.CreateRequest req) throws java.io.IOException {
-        return ResponseEntity.ok(challengeService.updateChallenge(id, req));
+            @ModelAttribute ChallengeDTO.CreateRequest request 
+    ) {
+        return ResponseEntity.ok(challengeService.updateChallenge(id, request));
     }
 
     @Operation(summary = "[Admin] Delete challenge")

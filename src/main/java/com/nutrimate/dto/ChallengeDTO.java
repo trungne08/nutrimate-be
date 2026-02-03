@@ -28,7 +28,7 @@ public class ChallengeDTO {
         private String description;
         private Integer durationDays;
         private String level;
-
+        private String imageUrl;
         private boolean joined; // Đã tham gia chưa?
         private Integer daysCompleted; // Đã làm được bao nhiêu ngày
         private Integer progressPercent; // % hoàn thành (0-100)
