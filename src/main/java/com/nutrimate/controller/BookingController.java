@@ -20,9 +20,9 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.core.oidc.user.OidcUser;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.web.bind.annotation.*;
-
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 import java.util.Map;
 
 @RestController
@@ -35,16 +35,42 @@ public class BookingController {
     private final UserRepository userRepository;
 
     private String getCurrentUserId(Authentication authentication) {
-        if (authentication == null || !authentication.isAuthenticated()) throw new BadRequestException("Vui lòng đăng nhập");
-        String email = null;
+        if (authentication == null || !authentication.isAuthenticated()) {
+            throw new BadRequestException("Vui lòng đăng nhập để thực hiện chức năng này");
+        }
+
         Object principal = authentication.getPrincipal();
-        if (principal instanceof Jwt) email = ((Jwt) principal).getClaimAsString("email");
-        else if (principal instanceof OidcUser) email = ((OidcUser) principal).getEmail();
-        else if (principal instanceof OAuth2User) email = ((OAuth2User) principal).getAttribute("email");
-        
-        if (email == null) throw new BadRequestException("Token không hợp lệ");
-        return userRepository.findByEmail(email).map(User::getId)
-                .orElseThrow(() -> new ResourceNotFoundException("User không tồn tại"));
+        String cognitoId = null;
+        String email = null;
+
+        // 1. Lấy thông tin từ Token
+        if (principal instanceof Jwt) {
+            Jwt jwt = (Jwt) principal;
+            cognitoId = jwt.getClaimAsString("sub");
+            email = jwt.getClaimAsString("email");  
+        } else if (principal instanceof OidcUser) {
+            OidcUser oidcUser = (OidcUser) principal;
+            cognitoId = oidcUser.getName(); 
+            email = oidcUser.getEmail();
+        } else if (principal instanceof OAuth2User) {
+            OAuth2User oauth2User = (OAuth2User) principal;
+            cognitoId = oauth2User.getName();
+            email = oauth2User.getAttribute("email");
+        }
+        if (cognitoId != null) {
+            Optional<User> userByCognito = userRepository.findByCognitoId(cognitoId);
+            if (userByCognito.isPresent()) {
+                return userByCognito.get().getId();
+            }
+        }
+        if (email != null) {
+            String finalEmail = email;
+            return userRepository.findByEmail(finalEmail)
+                    .map(User::getId)
+                    .orElseThrow(() -> new ResourceNotFoundException("User không tồn tại (Email: " + finalEmail + ")"));
+        }
+
+        throw new BadRequestException("Token không hợp lệ (Không tìm thấy sub/email)");
     }
 
     @Operation(summary = "Check price before booking")
