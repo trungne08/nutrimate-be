@@ -22,7 +22,6 @@ public class RecipeService {
     private final RecipeRepository recipeRepository;
     private final UserSubscriptionRepository userSubscriptionRepository;
     private final UserBenefitUsageRepository benefitUsageRepository;
-    private final UserRepository userRepository;
     private final FileUploadService fileUploadService;
 
     // 1. Tìm kiếm (Giữ nguyên)
@@ -93,6 +92,9 @@ public class RecipeService {
             } catch (IOException e) {
                 throw new RuntimeException("Lỗi upload ảnh recipe: " + e.getMessage());
             }
+        } else if (dto.getImageUrl() != null && !dto.getImageUrl().trim().isEmpty()) {
+            // Fallback: nếu FE gửi URL ảnh sẵn
+            recipe.setImageUrl(dto.getImageUrl().trim());
         }
         
         return recipeRepository.save(recipe);
@@ -112,6 +114,9 @@ public class RecipeService {
             } catch (IOException e) {
                 throw new RuntimeException("Lỗi upload ảnh recipe update: " + e.getMessage());
             }
+        } else if (dto.getImageUrl() != null && !dto.getImageUrl().trim().isEmpty()) {
+            // Fallback: nếu FE gửi URL ảnh sẵn
+            recipe.setImageUrl(dto.getImageUrl().trim());
         }
         // Nếu file null thì giữ nguyên ảnh cũ
 
