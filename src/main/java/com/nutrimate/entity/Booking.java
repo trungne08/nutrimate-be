@@ -23,12 +23,12 @@ public class Booking {
     private String id;
 
     @ManyToOne
-    @JoinColumn(name = "member_id", nullable = false) // DB gần như chắc chắn NOT NULL: một booking luôn phải có member
+    @JoinColumn(name = "member_id", nullable = false) // Tên cột trong Database
     private User member;
 
-    @ManyToOne
-    @JoinColumn(name = "expert_user_id", nullable = false) // DB đang NOT NULL nên đánh dấu non-null để pass validate
-    private User expert;
+    @ManyToOne 
+    @JoinColumn(name = "expert_user_id", nullable = false) // Tên cột trong Database
+    private ExpertProfile expert;
 
     @Column(name = "booking_time", nullable = false) // DB đang NOT NULL nên model phải non-null để pass validate
     private LocalDateTime bookingTime;

@@ -67,7 +67,6 @@ public class BookingService {
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
         ExpertProfile expertProfile = expertProfileRepository.findById(req.getExpertId())
                 .orElseThrow(() -> new ResourceNotFoundException("Expert not found"));
-        User expertUser = expertProfile.getUser();
 
         PriceCheckResponseDTO priceCheck = checkBookingPrice(userId, req.getExpertId());
 
@@ -80,7 +79,7 @@ public class BookingService {
 
         Booking booking = new Booking();
         booking.setMember(member);
-        booking.setExpert(expertUser);
+        booking.setExpert(expertProfile);
         booking.setBookingTime(req.getBookingTime());
         booking.setOriginalPrice(priceCheck.getOriginalPrice());
         booking.setFinalPrice(priceCheck.getFinalPrice());
