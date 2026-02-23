@@ -4,7 +4,7 @@ import com.nutrimate.entity.Booking;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
-
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -20,4 +20,7 @@ public interface BookingRepository extends JpaRepository<Booking, String> {
     List<Booking> findAllByDate(LocalDate date);
 
     List<Booking> findByExpertId(String expertId);
+
+    @Query("SELECT SUM(b.finalPrice) FROM Booking b WHERE b.status = 'COMPLETED' OR b.status = 'CONFIRMED'")
+    BigDecimal calculateTotalRevenue();
 }
