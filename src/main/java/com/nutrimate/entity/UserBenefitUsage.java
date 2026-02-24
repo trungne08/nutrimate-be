@@ -25,7 +25,7 @@ public class UserBenefitUsage {
     private String userId;
 
     @ManyToOne
-    @JoinColumn(name = "subscription_id", nullable = false)
+    @JoinColumn(name = "subscription_id")
     private UserSubscription subscription;
 
     // --- Cũ: Dành cho Expert ---

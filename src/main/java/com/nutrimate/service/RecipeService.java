@@ -58,9 +58,13 @@ public class RecipeService {
         UserBenefitUsage usage = benefitUsageRepository.findByUserId(userId)
                 .orElseGet(() -> {
                     UserBenefitUsage newUsage = new UserBenefitUsage();
-                    newUsage.setUserId(userId);
+                    newUsage.setUserId(userId); 
                     newUsage.setDailyRecipeViews(0);
                     newUsage.setLastRecipeViewDate(LocalDate.now());
+                    activeSubOpt.ifPresent(sub -> {
+                        newUsage.setSubscription(sub); 
+                    });
+
                     return newUsage;
                 });
 
