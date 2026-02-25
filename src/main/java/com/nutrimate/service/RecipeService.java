@@ -43,9 +43,11 @@ public class RecipeService {
     }
 
     private void checkAndIncrementFreeLimit(String userId) {
+        if (userId == null || userId.trim().isEmpty()) {
+            throw new ForbiddenException("Vui lòng đăng nhập tài khoản để xem chi tiết công thức!");
+        }
         Optional<UserSubscription> activeSubOpt = userSubscriptionRepository.findActiveSubscriptionByUserId(userId);
         boolean isPremium = false;
-        
         if (activeSubOpt.isPresent()) {
             String planName = activeSubOpt.get().getPlan().getPlanName().toUpperCase();
             if (planName.contains("PREMIUM") || planName.contains("EXPERT")) {
