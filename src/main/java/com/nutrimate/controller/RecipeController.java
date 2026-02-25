@@ -3,14 +3,13 @@ package com.nutrimate.controller;
 import com.nutrimate.dto.RecipeDTO;
 import com.nutrimate.entity.Recipe;
 import com.nutrimate.entity.User;
-import com.nutrimate.exception.BadRequestException;
-import com.nutrimate.exception.ResourceNotFoundException;
+import com.nutrimate.exception.ForbiddenException;
 import com.nutrimate.repository.UserRepository;
 import com.nutrimate.service.RecipeService;
 import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import java.util.Optional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -73,26 +72,41 @@ public class RecipeController {
     @GetMapping("/{id}")
     public ResponseEntity<?> getRecipeDetail(@PathVariable String id, Authentication authentication) {
 
-        // 1. Mặc định coi như là khách/user thường
         boolean isVip = false;
         String userId = null;
 
         if (authentication != null && authentication.isAuthenticated()) {
-            userId = getCurrentUserId(authentication);
-
-            // 2. Kiểm tra xem có phải Admin hoặc Expert không?
-            isVip = authentication.getAuthorities().stream()
-                    .anyMatch(role -> role.getAuthority().equals("ADMIN")
-                            || role.getAuthority().equals("EXPERT"));
+            String cognitoId = null;
+            
+            // 1. LẤY MÃ COGNITO_ID (SUB) TỪ TOKEN
+            if (authentication.getPrincipal() instanceof Jwt) {
+                Jwt jwt = (Jwt) authentication.getPrincipal();
+                cognitoId = jwt.getSubject(); 
+                if (cognitoId == null) {
+                    cognitoId = jwt.getClaimAsString("username");
+                }
+            }
+            if (cognitoId != null) {
+                Optional<User> userOpt = userRepository.findByCognitoId(cognitoId);
+                
+                if (userOpt.isPresent()) {
+                    User user = userOpt.get();
+                    userId = user.getId(); 
+                    
+                    if (user.getRole() != null) {
+                        String roleName = user.getRole().name(); 
+                        if (roleName.contains("ADMIN") || roleName.contains("EXPERT")) {
+                            isVip = true;
+                        }
+                    }
+                }
+            }
         }
-        Recipe recipe;
         if (isVip) {
-            recipe = recipeService.getRecipeById(id);
+            return ResponseEntity.ok(recipeService.getRecipeById(id));
         } else {
-            recipe = recipeService.getRecipeById(id, userId);
+            return ResponseEntity.ok(recipeService.getRecipeById(id, userId));
         }
-
-        return ResponseEntity.ok(recipe);
     }
 
     // --- ADMIN APIs ---
