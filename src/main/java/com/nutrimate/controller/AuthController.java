@@ -3,6 +3,8 @@ package com.nutrimate.controller;
 import com.nutrimate.dto.UpdateProfileRequest;
 import com.nutrimate.entity.HealthProfile;
 import com.nutrimate.entity.User;
+import com.nutrimate.entity.UserSubscription;
+import com.nutrimate.repository.UserSubscriptionRepository;
 import com.nutrimate.repository.HealthProfileRepository;
 import com.nutrimate.repository.UserRepository;
 import com.nutrimate.service.FileUploadService;
@@ -55,11 +57,13 @@ public class AuthController {
     private final String frontendUrl;
     private final String sessionCookieSameSite;
     private final boolean sessionCookieSecure;
+    private final UserSubscriptionRepository userSubscriptionRepository;
     
     public AuthController(UserRepository userRepository, 
                          HealthProfileRepository healthProfileRepository,
                          FileUploadService fileUploadService,
                          ClientRegistrationRepository clientRegistrationRepository,
+                         UserSubscriptionRepository userSubscriptionRepository,
                          @Value("${app.backend.url:http://localhost:8080}") String backendUrl,
                          @Value("${app.frontend.url:http://localhost:5173}") String frontendUrl,
                          @Value("${server.servlet.session.cookie.same-site:lax}") String sessionCookieSameSite,
@@ -72,6 +76,7 @@ public class AuthController {
         this.frontendUrl = frontendUrl;
         this.sessionCookieSameSite = sessionCookieSameSite;
         this.sessionCookieSecure = sessionCookieSecure;
+        this.userSubscriptionRepository = userSubscriptionRepository;
     }
     
     @Operation(
@@ -143,85 +148,68 @@ public class AuthController {
             @Parameter(hidden = true) @AuthenticationPrincipal OAuth2User oauth2User) {
         
         Map<String, Object> response = new HashMap<>();
+        Optional<User> userOpt = Optional.empty();
         
-        // Xử lý khi FE gửi Bearer token (JWT) - từ /api/auth/token
+        // 1. TÌM USER TỪ MỌI NGUỒN TOKEN (JWT / OIDC / OAuth2)
         if (authentication != null && authentication.getPrincipal() instanceof Jwt) {
             Jwt jwt = (Jwt) authentication.getPrincipal();
             String email = jwt.getClaimAsString("email");
             if (email == null) email = jwt.getClaimAsString("cognito:username");
             if (email == null) email = jwt.getClaimAsString("preferred_username");
-            Optional<User> userOpt = email != null ? userRepository.findByEmail(email) : Optional.empty();
+            
+            if (email != null) userOpt = userRepository.findByEmail(email);
             if (userOpt.isEmpty() && jwt.getClaimAsString("sub") != null) {
                 userOpt = userRepository.findByCognitoId(jwt.getClaimAsString("sub"));
             }
-            if (userOpt.isPresent()) {
-                User user = userOpt.get();
-                response.put("authenticated", true);
-                response.put("user", Map.of(
-                    "id", user.getId(),
-                    "email", user.getEmail(),
-                    "fullName", user.getFullName() != null ? user.getFullName() : "",
-                    "username", user.getUsername() != null ? user.getUsername() : "",
-                    "phoneNumber", user.getPhoneNumber() != null ? user.getPhoneNumber() : "",
-                    "role", user.getRole().name(),
-                    "avatarUrl", user.getAvatarUrl() != null ? user.getAvatarUrl() : ""
-                ));
-                return ResponseEntity.ok(response);
-            }
-            response.put("authenticated", true);
-            response.put("user", null);
-            response.put("message", "User not found in database");
-            return ResponseEntity.ok(response);
-        }
-        
-        // Xử lý cho OIDC (OpenID Connect) - Cognito (session/cookie)
-        if (oidcUser != null) {
-            String email = oidcUser.getEmail();
-            Optional<User> userOpt = userRepository.findByEmail(email);
-            
-            if (userOpt.isPresent()) {
-                User user = userOpt.get();
-                response.put("authenticated", true);
-                response.put("user", Map.of(
-                    "id", user.getId(),
-                    "email", user.getEmail(),
-                    "fullName", user.getFullName() != null ? user.getFullName() : "",
-                    "username", user.getUsername() != null ? user.getUsername() : "",
-                    "phoneNumber", user.getPhoneNumber() != null ? user.getPhoneNumber() : "",
-                    "role", user.getRole().name(),
-                    "avatarUrl", user.getAvatarUrl() != null ? user.getAvatarUrl() : ""
-                ));
-                response.put("cognitoClaims", oidcUser.getClaims());
-            } else {
-                response.put("authenticated", true);
-                response.put("user", null);
-                response.put("message", "User not found in database");
-            }
-        }
-        // Fallback cho OAuth2 thông thường
-        else if (oauth2User != null) {
-            String email = oauth2User.getAttribute("email");
-            Optional<User> userOpt = userRepository.findByEmail(email);
-            
-            if (userOpt.isPresent()) {
-                User user = userOpt.get();
-                response.put("authenticated", true);
-                response.put("user", Map.of(
-                    "id", user.getId(),
-                    "email", user.getEmail(),
-                    "fullName", user.getFullName() != null ? user.getFullName() : "",
-                    "username", user.getUsername() != null ? user.getUsername() : "",
-                    "phoneNumber", user.getPhoneNumber() != null ? user.getPhoneNumber() : "",
-                    "role", user.getRole().name(),
-                    "avatarUrl", user.getAvatarUrl() != null ? user.getAvatarUrl() : ""
-                ));
-            } else {
-                response.put("authenticated", true);
-                response.put("user", null);
-            }
+        } else if (oidcUser != null) {
+            userOpt = userRepository.findByEmail(oidcUser.getEmail());
+            response.put("cognitoClaims", oidcUser.getClaims());
+        } else if (oauth2User != null) {
+            userOpt = userRepository.findByEmail(oauth2User.getAttribute("email"));
         } else {
             response.put("authenticated", false);
             response.put("message", "Not authenticated");
+            return ResponseEntity.ok(response);
+        }
+        
+        // 2. BUILD DATA TRẢ VỀ CHO FRONTEND
+        if (userOpt.isPresent()) {
+            User user = userOpt.get();
+            response.put("authenticated", true);
+            
+            Map<String, Object> userInfo = new HashMap<>();
+            userInfo.put("id", user.getId());
+            userInfo.put("email", user.getEmail());
+            userInfo.put("fullName", user.getFullName() != null ? user.getFullName() : "");
+            userInfo.put("username", user.getUsername() != null ? user.getUsername() : "");
+            userInfo.put("phoneNumber", user.getPhoneNumber() != null ? user.getPhoneNumber() : "");
+            userInfo.put("role", user.getRole().name());
+            userInfo.put("avatarUrl", user.getAvatarUrl() != null ? user.getAvatarUrl() : "");
+            
+            // 🚀 ĐOẠN MỚI: TÌM VÀ GẮN GÓI SUBSCRIPTION VÀO RESPONSE
+            Optional<UserSubscription> activeSub = userSubscriptionRepository.findActiveSubscriptionByUserId(user.getId());
+            if (activeSub.isPresent()) {
+                UserSubscription sub = activeSub.get();
+                Map<String, Object> subInfo = new HashMap<>();
+                subInfo.put("planName", sub.getPlan().getPlanName());
+                subInfo.put("status", sub.getStatus().name());
+                subInfo.put("startDate", sub.getStartDate());
+                subInfo.put("endDate", sub.getEndDate());
+                
+                // Tiện tay check luôn xem có phải gói xịn không cho FE dễ code if-else
+                String planUp = sub.getPlan().getPlanName().toUpperCase();
+                subInfo.put("isPremium", planUp.contains("PREMIUM") || planUp.contains("EXPERT"));
+                
+                userInfo.put("subscription", subInfo);
+            } else {
+                userInfo.put("subscription", null); // Không có gói thì trả null (Free User)
+            }
+            
+            response.put("user", userInfo);
+        } else {
+            response.put("authenticated", true);
+            response.put("user", null);
+            response.put("message", "User not found in database");
         }
         
         return ResponseEntity.ok(response);
