@@ -408,28 +408,35 @@ public class AuthController {
         
         Map<String, Object> response = new HashMap<>();
 
-        // Lấy email từ authenticated user (support cả session lẫn Bearer access_token)
+        // Lấy thông tin định danh từ authenticated user (hỗ trợ cả session và Bearer access_token)
         String email = null;
+        String cognitoId = null;
 
         if (oidcUser != null) {
             email = oidcUser.getEmail();
+            cognitoId = oidcUser.getSubject();
         } else if (oauth2User != null) {
             email = oauth2User.getAttribute("email");
         } else if (authentication instanceof JwtAuthenticationToken jwtAuth) {
-            Object claimEmail = jwtAuth.getToken().getClaims().get("email");
-            if (claimEmail != null) {
-                email = claimEmail.toString();
-            }
+            var jwt = jwtAuth.getToken();
+            email = jwt.getClaimAsString("email");
+            cognitoId = jwt.getClaimAsString("sub");
         }
 
-        if (email == null || email.trim().isEmpty()) {
+        if ((email == null || email.trim().isEmpty()) && (cognitoId == null || cognitoId.trim().isEmpty())) {
             response.put("success", false);
             response.put("message", "Unauthorized - Please login first");
             return ResponseEntity.status(401).body(response);
         }
         
         // Tìm user trong database
-        Optional<User> userOpt = userRepository.findByEmail(email);
+        Optional<User> userOpt = Optional.empty();
+        if (email != null && !email.trim().isEmpty()) {
+            userOpt = userRepository.findByEmail(email);
+        }
+        if (userOpt.isEmpty() && cognitoId != null && !cognitoId.trim().isEmpty()) {
+            userOpt = userRepository.findByCognitoId(cognitoId);
+        }
         
         if (userOpt.isEmpty()) {
             response.put("success", false);
