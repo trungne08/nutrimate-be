@@ -333,14 +333,31 @@ public class AuthController {
     })
     @GetMapping("/status")
     public ResponseEntity<Map<String, Object>> checkAuthStatus(
+            @Parameter(hidden = true) Authentication authentication,
             @Parameter(hidden = true) @AuthenticationPrincipal OidcUser oidcUser,
             @Parameter(hidden = true) @AuthenticationPrincipal OAuth2User oauth2User) {
         
         Map<String, Object> response = new HashMap<>();
         boolean isAuthenticated = oidcUser != null || oauth2User != null;
+
+        // Hỗ trợ Bearer access_token (JwtAuthenticationToken)
+        if (!isAuthenticated && authentication instanceof JwtAuthenticationToken jwtAuth) {
+            isAuthenticated = true;
+            Object emailClaim = jwtAuth.getToken().getClaims().get("email");
+            if (emailClaim != null) {
+                response.put("email", emailClaim.toString());
+            } else {
+                // fallback: sub / username
+                Object sub = jwtAuth.getToken().getClaims().get("sub");
+                if (sub != null) {
+                    response.put("sub", sub.toString());
+                }
+            }
+        }
+
         response.put("authenticated", isAuthenticated);
         
-        if (isAuthenticated) {
+        if (isAuthenticated && !response.containsKey("email")) {
             String email = oidcUser != null ? oidcUser.getEmail() : oauth2User.getAttribute("email");
             response.put("email", email);
         }
