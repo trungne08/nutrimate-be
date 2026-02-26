@@ -343,23 +343,37 @@ public class AuthController {
         // Hỗ trợ Bearer access_token (JwtAuthenticationToken)
         if (!isAuthenticated && authentication instanceof JwtAuthenticationToken jwtAuth) {
             isAuthenticated = true;
-            Object emailClaim = jwtAuth.getToken().getClaims().get("email");
-            if (emailClaim != null) {
-                response.put("email", emailClaim.toString());
-            } else {
-                // fallback: sub / username
-                Object sub = jwtAuth.getToken().getClaims().get("sub");
+            Jwt jwt = jwtAuth.getToken();
+
+            // Ưu tiên lấy email từ claim nếu có
+            String email = jwt.getClaimAsString("email");
+
+            // Nếu không có email trong token, tra DB theo cognitoId (sub)
+            if (email == null) {
+                String sub = jwt.getClaimAsString("sub");
                 if (sub != null) {
-                    response.put("sub", sub.toString());
+                    userRepository.findByCognitoId(sub).ifPresent(user -> {
+                        response.put("email", user.getEmail());
+                    });
                 }
+            } else {
+                response.put("email", email);
             }
         }
 
         response.put("authenticated", isAuthenticated);
         
+        // Nếu đã có email ở trên (Bearer token hoặc logic khác) thì không cần set lại
         if (isAuthenticated && !response.containsKey("email")) {
-            String email = oidcUser != null ? oidcUser.getEmail() : oauth2User.getAttribute("email");
-            response.put("email", email);
+            String email = null;
+            if (oidcUser != null) {
+                email = oidcUser.getEmail();
+            } else if (oauth2User != null) {
+                email = oauth2User.getAttribute("email");
+            }
+            if (email != null) {
+                response.put("email", email);
+            }
         }
         
         return ResponseEntity.ok(response);
