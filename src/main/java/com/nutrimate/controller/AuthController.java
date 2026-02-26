@@ -27,6 +27,7 @@ import org.springframework.security.oauth2.client.registration.InMemoryClientReg
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClient;
 import org.springframework.security.oauth2.client.annotation.RegisteredOAuth2AuthorizedClient;
 import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.security.oauth2.core.oidc.user.OidcUser;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.security.web.authentication.logout.SecurityContextLogoutHandler;
@@ -370,20 +371,31 @@ public class AuthController {
     })
     @GetMapping("/profile/status")
     public ResponseEntity<Map<String, Object>> checkProfileStatus(
+            @Parameter(hidden = true) Authentication authentication,
             @Parameter(hidden = true) @AuthenticationPrincipal OidcUser oidcUser,
             @Parameter(hidden = true) @AuthenticationPrincipal OAuth2User oauth2User) {
         
         Map<String, Object> response = new HashMap<>();
-        
-        // Kiểm tra authentication
-        if (oidcUser == null && oauth2User == null) {
+
+        // Lấy email từ authenticated user (support cả session lẫn Bearer access_token)
+        String email = null;
+
+        if (oidcUser != null) {
+            email = oidcUser.getEmail();
+        } else if (oauth2User != null) {
+            email = oauth2User.getAttribute("email");
+        } else if (authentication instanceof JwtAuthenticationToken jwtAuth) {
+            Object claimEmail = jwtAuth.getToken().getClaims().get("email");
+            if (claimEmail != null) {
+                email = claimEmail.toString();
+            }
+        }
+
+        if (email == null || email.trim().isEmpty()) {
             response.put("success", false);
             response.put("message", "Unauthorized - Please login first");
             return ResponseEntity.status(401).body(response);
         }
-        
-        // Lấy email từ authenticated user
-        String email = oidcUser != null ? oidcUser.getEmail() : oauth2User.getAttribute("email");
         
         // Tìm user trong database
         Optional<User> userOpt = userRepository.findByEmail(email);
