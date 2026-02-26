@@ -11,6 +11,11 @@ import com.nutrimate.repository.BookingRepository;
 import com.nutrimate.repository.FeedbackRepository;
 import com.nutrimate.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import java.util.HashMap;
+import java.util.Map;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -61,5 +66,28 @@ public class FeedbackService {
         feedback.setComment(req.getComment());
 
         return feedbackRepository.save(feedback);
+    }
+
+    public Map<String, Object> getExpertFeedbacks(String expertId, int page, int size) {
+        Pageable pageable = PageRequest.of(page, size);
+        
+        // Lấy danh sách feedback
+        Page<Feedback> feedbackPage = feedbackRepository.findByExpertId(expertId, pageable);
+        
+        // Lấy điểm trung bình
+        Double avgRating = feedbackRepository.getAverageRatingByExpertId(expertId);
+        
+        // Đóng gói trả về cho Frontend
+        Map<String, Object> response = new HashMap<>();
+        response.put("feedbacks", feedbackPage.getContent());
+        response.put("currentPage", feedbackPage.getNumber());
+        response.put("totalItems", feedbackPage.getTotalElements());
+        response.put("totalPages", feedbackPage.getTotalPages());
+        
+        // Làm tròn 1 chữ số thập phân (VD: 4.56 -> 4.6)
+        response.put("averageRating", avgRating != null ? Math.round(avgRating * 10.0) / 10.0 : 0.0);
+        response.put("totalReviews", feedbackPage.getTotalElements());
+
+        return response;
     }
 }

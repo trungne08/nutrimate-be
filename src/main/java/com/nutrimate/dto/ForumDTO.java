@@ -31,6 +31,7 @@ public class ForumDTO {
         private String authorName;
         private String authorAvatar;
         private String authorId;
+        private String authorRole;
         private String content;
         private String imageUrl;
         private LocalDateTime createdAt;
@@ -55,6 +56,7 @@ public class ForumDTO {
         private String authorName;
         private String authorAvatar;
         private String authorId;
+        private String authorRole;
         private String content;
         private String imageUrl;
         private LocalDateTime createdAt;

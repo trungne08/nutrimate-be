@@ -37,7 +37,16 @@ public class FeedbackController {
         return ResponseEntity.ok(feedbackService.createFeedback(userId, request));
     }
 
-    // 👇 Hàm lấy userId quen thuộc (Copy từ mấy controller khác qua)
+    @Operation(summary = "Lấy danh sách đánh giá của 1 Chuyên gia (Public)")
+    @GetMapping("/expert/{expertId}")
+    public ResponseEntity<?> getExpertFeedbacks(
+            @PathVariable String expertId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        
+        return ResponseEntity.ok(feedbackService.getExpertFeedbacks(expertId, page, size));
+    }
+
     private String getCurrentUserId(Authentication authentication) {
         if (authentication == null || !authentication.isAuthenticated()) {
             throw new BadRequestException("Vui lòng đăng nhập để thực hiện chức năng này");

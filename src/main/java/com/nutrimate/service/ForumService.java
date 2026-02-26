@@ -7,8 +7,6 @@ import com.nutrimate.exception.ForbiddenException;
 import com.nutrimate.exception.AccessDeniedException;
 import com.nutrimate.exception.ResourceNotFoundException;
 import com.nutrimate.service.FileUploadService;
-import com.nutrimate.repository.CommentRepository;
-import com.nutrimate.repository.PostLikeRepository;
 import com.nutrimate.repository.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -266,6 +264,7 @@ public class ForumService {
                 .authorName(post.getUser().getFullName())
                 .authorAvatar(post.getUser().getAvatarUrl())
                 .authorId(post.getUser().getId())
+                .authorRole(post.getUser().getRole() != null ? post.getUser().getRole().name() : "MEMBER")
                 .content(post.getContent())
                 .imageUrl(post.getImageUrl())
                 .createdAt(post.getCreatedAt())
@@ -281,6 +280,7 @@ public class ForumService {
                 .authorName(comment.getUser().getFullName())
                 .authorAvatar(comment.getUser().getAvatarUrl())
                 .authorId(comment.getUser().getId())
+                .authorRole(comment.getUser().getRole() != null ? comment.getUser().getRole().name() : "MEMBER")
                 .content(comment.getContent())
                 .imageUrl(comment.getImageUrl())
                 .createdAt(comment.getCreatedAt())

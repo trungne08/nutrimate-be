@@ -56,7 +56,7 @@ public class SecurityConfig {
                                 "/oauth2/**",
                                 "/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html").permitAll()
                 
-                .requestMatchers(HttpMethod.GET, "/api/forum/posts/**", "/api/forum/comments/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/forum/posts/**", "/api/forum/comments/**", "/api/system-feedbacks/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/experts/my-bookings").authenticated()
                 .requestMatchers(HttpMethod.GET, "/api/experts/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/challenges/**").permitAll()
