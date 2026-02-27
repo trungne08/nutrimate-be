@@ -55,6 +55,8 @@ public class SecurityConfig {
                                 "/api/auth/login", "/api/auth/status", 
                                 "/oauth2/**",
                                 "/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html").permitAll()
+                // PayOS webhook - public để PayOS gọi callback không bị 401
+                .requestMatchers("/api/payment/payos-webhook").permitAll()
                 
                 .requestMatchers(HttpMethod.GET, "/api/forum/posts/**", "/api/forum/comments/**", "/api/system-feedbacks/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/experts/my-bookings").authenticated()
