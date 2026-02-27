@@ -55,6 +55,8 @@ public class SecurityConfig {
                                 "/api/auth/login", "/api/auth/status", 
                                 "/oauth2/**",
                                 "/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html").permitAll()
+                // WebSocket - cho phép kết nối WS không bị 401/403
+                .requestMatchers("/ws/**").permitAll()
                 // PayOS webhook - public để PayOS gọi callback không bị 401
                 .requestMatchers("/api/payment/payos-webhook").permitAll()
                 

@@ -36,6 +36,8 @@ public class CorsConfig {
         origins.add("http://127.0.0.1:3000");
         origins.add("http://localhost:5175");       // Vite thêm port nếu 5173 bị chiếm
         origins.add("http://127.0.0.1:5175");
+        origins.add("http://localhost:5500");       // Live Server (VS Code) - test HTML file
+        origins.add("http://127.0.0.1:5500");
         
         // Thêm frontend URL từ config
         if (frontendUrl != null && !frontendUrl.isEmpty()) {
@@ -53,14 +55,9 @@ public class CorsConfig {
             }
         }
         
-        // Nếu không có origins nào, dùng pattern "*" (chỉ khi không có credentials)
-        if (origins.isEmpty()) {
-            configuration.setAllowedOriginPatterns(Arrays.asList("*"));
-            configuration.setAllowCredentials(false); // Phải tắt credentials khi dùng "*"
-        } else {
-            configuration.setAllowedOrigins(origins);
-            configuration.setAllowCredentials(true); // Cho phép credentials với origins cụ thể
-        }
+        // Tạm dùng "*" cho test local (bao gồm Live Server 5500). Production nên chuyển lại setAllowedOrigins(origins)
+        configuration.setAllowedOriginPatterns(List.of("*"));
+        configuration.setAllowCredentials(true); // allowCredentials works with originPatterns("*") in Spring 5.3+
         
         // Cho phép tất cả methods (QUAN TRỌNG: phải có OPTIONS cho preflight)
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH", "HEAD"));
