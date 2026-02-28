@@ -43,8 +43,8 @@ public class ChatController {
     @Operation(summary = "Lấy lịch sử tin nhắn giữa 2 user theo chatType")
     @GetMapping("/api/chat/history/{user1Id}/{user2Id}")
     public List<ChatMessage> getChatHistory(
-            @Parameter(description = "User 1 ID") @PathVariable Long user1Id,
-            @Parameter(description = "User 2 ID") @PathVariable Long user2Id,
+            @Parameter(description = "User 1 ID (UUID)") @PathVariable("user1Id") String user1Id,
+            @Parameter(description = "User 2 ID (UUID)") @PathVariable("user2Id") String user2Id,
             @Parameter(description = "EXPERT (Tư vấn) hoặc SUPPORT (Hỗ trợ)") @RequestParam ChatType chatType) {
         return chatMessageRepository.findChatHistoryBetween(user1Id, user2Id, chatType);
     }

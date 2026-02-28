@@ -21,11 +21,11 @@ public class ChatMessage {
     @Column(name = "id")
     private Long id;
 
-    @Column(name = "sender_id", nullable = false)
-    private Long senderId;
+    @Column(name = "sender_id", nullable = false, length = 36)
+    private String senderId;
 
-    @Column(name = "receiver_id", nullable = false)
-    private Long receiverId;
+    @Column(name = "receiver_id", nullable = false, length = 36)
+    private String receiverId;
 
     @Column(name = "content", nullable = false, length = 2000)
     private String content;
