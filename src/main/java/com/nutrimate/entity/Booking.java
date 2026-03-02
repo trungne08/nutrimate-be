@@ -47,6 +47,7 @@ public class Booking {
     private String note;
     
     @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
     private BookingStatus status;
 
     @Column(name = "meeting_link")
