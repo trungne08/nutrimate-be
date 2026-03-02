@@ -22,14 +22,12 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.ResponseCookie;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.client.registration.ClientRegistration;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.security.oauth2.client.registration.InMemoryClientRegistrationRepository;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClient;
 import org.springframework.security.oauth2.client.annotation.RegisteredOAuth2AuthorizedClient;
 import org.springframework.security.oauth2.jwt.Jwt;
-import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.security.oauth2.core.oidc.user.OidcUser;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.security.web.authentication.logout.SecurityContextLogoutHandler;
@@ -77,6 +75,35 @@ public class AuthController {
         this.sessionCookieSameSite = sessionCookieSameSite;
         this.sessionCookieSecure = sessionCookieSecure;
         this.userSubscriptionRepository = userSubscriptionRepository;
+    }
+
+    /**
+     * Lấy User hiện tại từ sub (cognito_id) - Access Token Cognito mặc định không chứa email.
+     * Hỗ trợ Jwt, OidcUser, OAuth2User.
+     */
+    private Optional<User> getCurrentUser(Authentication authentication) {
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return Optional.empty();
+        }
+
+        String cognitoId = null;
+        Object principal = authentication.getPrincipal();
+
+        if (principal instanceof Jwt) {
+            cognitoId = ((Jwt) principal).getClaimAsString("sub");
+        } else if (principal instanceof OidcUser) {
+            cognitoId = ((OidcUser) principal).getSubject();
+        } else if (principal instanceof OAuth2User) {
+            OAuth2User oauth2User = (OAuth2User) principal;
+            cognitoId = oauth2User.getAttribute("sub");
+            if (cognitoId == null) cognitoId = oauth2User.getName();
+        }
+
+        if (cognitoId == null || cognitoId.isBlank()) {
+            return Optional.empty();
+        }
+
+        return userRepository.findByCognitoId(cognitoId);
     }
     
     @Operation(
@@ -142,37 +169,24 @@ public class AuthController {
             )
     })
     @GetMapping("/me")
-    public ResponseEntity<Map<String, Object>> getCurrentUser(
-            @Parameter(hidden = true) Authentication authentication,
-            @Parameter(hidden = true) @AuthenticationPrincipal OidcUser oidcUser,
-            @Parameter(hidden = true) @AuthenticationPrincipal OAuth2User oauth2User) {
+    public ResponseEntity<Map<String, Object>> getMe(
+            @Parameter(hidden = true) Authentication authentication) {
         
         Map<String, Object> response = new HashMap<>();
-        Optional<User> userOpt = Optional.empty();
-        
-        // 1. TÌM USER TỪ MỌI NGUỒN TOKEN (JWT / OIDC / OAuth2)
-        if (authentication != null && authentication.getPrincipal() instanceof Jwt) {
-            Jwt jwt = (Jwt) authentication.getPrincipal();
-            String email = jwt.getClaimAsString("email");
-            if (email == null) email = jwt.getClaimAsString("cognito:username");
-            if (email == null) email = jwt.getClaimAsString("preferred_username");
-            
-            if (email != null) userOpt = userRepository.findByEmail(email);
-            if (userOpt.isEmpty() && jwt.getClaimAsString("sub") != null) {
-                userOpt = userRepository.findByCognitoId(jwt.getClaimAsString("sub"));
-            }
-        } else if (oidcUser != null) {
-            userOpt = userRepository.findByEmail(oidcUser.getEmail());
-            response.put("cognitoClaims", oidcUser.getClaims());
-        } else if (oauth2User != null) {
-            userOpt = userRepository.findByEmail(oauth2User.getAttribute("email"));
-        } else {
+
+        if (authentication == null || !authentication.isAuthenticated()) {
             response.put("authenticated", false);
             response.put("message", "Not authenticated");
             return ResponseEntity.ok(response);
         }
+
+        Optional<User> userOpt = getCurrentUser(authentication);
+
+        if (authentication.getPrincipal() instanceof OidcUser) {
+            response.put("cognitoClaims", ((OidcUser) authentication.getPrincipal()).getClaims());
+        }
         
-        // 2. BUILD DATA TRẢ VỀ CHO FRONTEND
+        // BUILD DATA TRẢ VỀ CHO FRONTEND
         if (userOpt.isPresent()) {
             User user = userOpt.get();
             response.put("authenticated", true);
@@ -321,47 +335,19 @@ public class AuthController {
     })
     @GetMapping("/status")
     public ResponseEntity<Map<String, Object>> checkAuthStatus(
-            @Parameter(hidden = true) Authentication authentication,
-            @Parameter(hidden = true) @AuthenticationPrincipal OidcUser oidcUser,
-            @Parameter(hidden = true) @AuthenticationPrincipal OAuth2User oauth2User) {
+            @Parameter(hidden = true) Authentication authentication) {
         
         Map<String, Object> response = new HashMap<>();
-        boolean isAuthenticated = oidcUser != null || oauth2User != null;
-
-        // Hỗ trợ Bearer access_token (JwtAuthenticationToken)
-        if (!isAuthenticated && authentication instanceof JwtAuthenticationToken jwtAuth) {
-            isAuthenticated = true;
-            Jwt jwt = jwtAuth.getToken();
-
-            // Ưu tiên lấy email từ claim nếu có
-            String email = jwt.getClaimAsString("email");
-
-            // Nếu không có email trong token, tra DB theo cognitoId (sub)
-            if (email == null) {
-                String sub = jwt.getClaimAsString("sub");
-                if (sub != null) {
-                    userRepository.findByCognitoId(sub).ifPresent(user -> {
-                        response.put("email", user.getEmail());
-                    });
-                }
-            } else {
-                response.put("email", email);
-            }
-        }
+        boolean isAuthenticated = authentication != null && authentication.isAuthenticated();
 
         response.put("authenticated", isAuthenticated);
-        
-        // Nếu đã có email ở trên (Bearer token hoặc logic khác) thì không cần set lại
-        if (isAuthenticated && !response.containsKey("email")) {
-            String email = null;
-            if (oidcUser != null) {
-                email = oidcUser.getEmail();
-            } else if (oauth2User != null) {
-                email = oauth2User.getAttribute("email");
-            }
-            if (email != null) {
-                response.put("email", email);
-            }
+
+        if (isAuthenticated) {
+            getCurrentUser(authentication).ifPresent(user -> {
+                if (user.getEmail() != null) {
+                    response.put("email", user.getEmail());
+                }
+            });
         }
         
         return ResponseEntity.ok(response);
@@ -390,42 +376,18 @@ public class AuthController {
     })
     @GetMapping("/profile/status")
     public ResponseEntity<Map<String, Object>> checkProfileStatus(
-            @Parameter(hidden = true) Authentication authentication,
-            @Parameter(hidden = true) @AuthenticationPrincipal OidcUser oidcUser,
-            @Parameter(hidden = true) @AuthenticationPrincipal OAuth2User oauth2User) {
+            @Parameter(hidden = true) Authentication authentication) {
         
         Map<String, Object> response = new HashMap<>();
 
-        // Lấy thông tin định danh từ authenticated user (hỗ trợ cả session và Bearer access_token)
-        String email = null;
-        String cognitoId = null;
-
-        if (oidcUser != null) {
-            email = oidcUser.getEmail();
-            cognitoId = oidcUser.getSubject();
-        } else if (oauth2User != null) {
-            email = oauth2User.getAttribute("email");
-        } else if (authentication instanceof JwtAuthenticationToken jwtAuth) {
-            var jwt = jwtAuth.getToken();
-            email = jwt.getClaimAsString("email");
-            cognitoId = jwt.getClaimAsString("sub");
-        }
-
-        if ((email == null || email.trim().isEmpty()) && (cognitoId == null || cognitoId.trim().isEmpty())) {
+        if (authentication == null || !authentication.isAuthenticated()) {
             response.put("success", false);
             response.put("message", "Unauthorized - Please login first");
             return ResponseEntity.status(401).body(response);
         }
-        
-        // Tìm user trong database
-        Optional<User> userOpt = Optional.empty();
-        if (email != null && !email.trim().isEmpty()) {
-            userOpt = userRepository.findByEmail(email);
-        }
-        if (userOpt.isEmpty() && cognitoId != null && !cognitoId.trim().isEmpty()) {
-            userOpt = userRepository.findByCognitoId(cognitoId);
-        }
-        
+
+        Optional<User> userOpt = getCurrentUser(authentication);
+
         if (userOpt.isEmpty()) {
             response.put("success", false);
             response.put("message", "User not found in database");
@@ -721,24 +683,18 @@ public class AuthController {
     })
     @PutMapping(value = "/profile", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<Map<String, Object>> updateProfile(
-            @Parameter(hidden = true) @AuthenticationPrincipal OidcUser oidcUser,
-            @Parameter(hidden = true) @AuthenticationPrincipal OAuth2User oauth2User,
+            @Parameter(hidden = true) Authentication authentication,
             @Valid @ModelAttribute UpdateProfileRequest request) {
         
         Map<String, Object> response = new HashMap<>();
         
-        // Kiểm tra authentication
-        if (oidcUser == null && oauth2User == null) {
+        if (authentication == null || !authentication.isAuthenticated()) {
             response.put("success", false);
             response.put("message", "Unauthorized - Please login first");
             return ResponseEntity.status(401).body(response);
         }
         
-        // Lấy email từ authenticated user
-        String email = oidcUser != null ? oidcUser.getEmail() : oauth2User.getAttribute("email");
-        
-        // Tìm user trong database
-        Optional<User> userOpt = userRepository.findByEmail(email);
+        Optional<User> userOpt = getCurrentUser(authentication);
         
         if (userOpt.isEmpty()) {
             response.put("success", false);
