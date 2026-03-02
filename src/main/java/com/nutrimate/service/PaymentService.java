@@ -3,6 +3,7 @@ package com.nutrimate.service;
 import com.nutrimate.dto.CreatePaymentLinkRequestDTO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import vn.payos.PayOS;
 import vn.payos.exception.PayOSException;
@@ -15,8 +16,8 @@ import vn.payos.model.webhooks.WebhookData;
 @Slf4j
 public class PaymentService {
 
-    private static final String RETURN_URL = "http://localhost:5173";
-    private static final String CANCEL_URL = "http://localhost:5173";
+    @Value("${app.frontend.url:http://localhost:5173}")
+    private String frontendUrl;
 
     private final PayOS payOS;
 
@@ -40,12 +41,15 @@ public class PaymentService {
         String desc = "NUTRI " + truncate(request.getUserId(), 8) + " " + truncate(request.getPlanId(), 8);
         String description = desc.length() <= MAX_DESCRIPTION_LENGTH ? desc : desc.substring(0, MAX_DESCRIPTION_LENGTH);
 
+        String returnUrl = frontendUrl.replaceAll("/$", "") + "/payment/success";
+        String cancelUrl = frontendUrl.replaceAll("/$", "") + "/payment/cancel";
+
         CreatePaymentLinkRequest paymentData = CreatePaymentLinkRequest.builder()
                 .orderCode(orderCode)
                 .amount(request.getAmount().longValue())
                 .description(description)
-                .returnUrl(RETURN_URL)
-                .cancelUrl(CANCEL_URL)
+                .returnUrl(returnUrl)
+                .cancelUrl(cancelUrl)
                 .build();
 
         CreatePaymentLinkResponse response = payOS.paymentRequests().create(paymentData);
