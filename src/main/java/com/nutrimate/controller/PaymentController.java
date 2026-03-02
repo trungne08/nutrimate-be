@@ -1,5 +1,6 @@
 package com.nutrimate.controller;
 
+import com.nutrimate.dto.CreateBookingPaymentRequest;
 import com.nutrimate.dto.CreatePaymentLinkRequestDTO;
 import com.nutrimate.service.PaymentService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -34,8 +35,8 @@ public class PaymentController {
     @Operation(summary = "Tạo link thanh toán cho Booking")
     @PostMapping("/create-booking-link")
     public ResponseEntity<Map<String, String>> createBookingPaymentLink(
-            @RequestBody Map<String, String> payload) throws PayOSException {
-        String bookingId = payload.get("bookingId");
+            @RequestBody CreateBookingPaymentRequest request) throws PayOSException {
+        String bookingId = request.getBookingId();
         String checkoutUrl = paymentService.createBookingPaymentLink(bookingId);
         return ResponseEntity.ok(Map.of("checkoutUrl", checkoutUrl));
     }
