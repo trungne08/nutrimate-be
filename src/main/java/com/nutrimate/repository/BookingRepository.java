@@ -26,7 +26,8 @@ public interface BookingRepository extends JpaRepository<Booking, String> {
 
     List<Booking> findByExpertId(String expertId);
 
-    @Query("SELECT SUM(b.finalPrice) FROM Booking b WHERE b.status = 'COMPLETED' OR b.status = 'CONFIRMED'")
+    @Query("SELECT SUM(b.finalPrice) FROM Booking b " +
+            "WHERE b.status = 'COMPLETED' OR b.status = 'DONE' OR b.status = 'CONFIRMED'")
     BigDecimal calculateTotalRevenue();
 
     @Query("SELECT b FROM Booking b " +
@@ -39,4 +40,14 @@ public interface BookingRepository extends JpaRepository<Booking, String> {
     Optional<Booking> findByOrderCode(Long orderCode);
 
     List<Booking> findByStatusAndCreatedAtBefore(BookingStatus status, LocalDateTime createdAtBefore);
+
+    @Query("SELECT COUNT(b) FROM Booking b " +
+            "WHERE b.member.id = :memberId " +
+            "AND b.isFreeSession = true " +
+            "AND b.status IN :statuses " +
+            "AND b.bookingTime BETWEEN :startTime AND :endTime")
+    long countUsedFreeSessions(@Param("memberId") String memberId,
+                               @Param("statuses") List<BookingStatus> statuses,
+                               @Param("startTime") LocalDateTime startTime,
+                               @Param("endTime") LocalDateTime endTime);
 }

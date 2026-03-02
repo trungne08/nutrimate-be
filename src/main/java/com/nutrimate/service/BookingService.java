@@ -4,9 +4,10 @@ import com.nutrimate.dto.BookingRequestDTO;
 import com.nutrimate.dto.BookingStatusDTO;
 import com.nutrimate.dto.PriceCheckResponseDTO;
 import com.nutrimate.entity.*;
+import com.nutrimate.entity.Booking.BookingStatus;
+import com.nutrimate.exception.BadRequestException;
 import com.nutrimate.exception.ForbiddenException;
 import com.nutrimate.exception.ResourceNotFoundException;
-import com.nutrimate.exception.BadRequestException;
 import com.nutrimate.repository.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -18,6 +19,7 @@ import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 @Service
@@ -39,31 +41,66 @@ public class BookingService {
             "19:00", "20:00", "21:00"
     );
 
-    // 5.3 CHECK GIÁ (Quan trọng: Logic trừ lượt Free)
+    // Helper nội bộ: thông tin free sessions còn lại cho user
+    private static class FreeSessionInfo {
+        private final boolean hasSubscription;
+        private final int total;
+        private final long used;
+        private final long remaining;
+        private final UserSubscription subscription; // để cập nhật usage khi create booking
+
+        private FreeSessionInfo(boolean hasSubscription, int total, long used, long remaining, UserSubscription subscription) {
+            this.hasSubscription = hasSubscription;
+            this.total = total;
+            this.used = used;
+            this.remaining = remaining;
+            this.subscription = subscription;
+        }
+    }
+
+    private FreeSessionInfo calculateFreeSessions(String userId) {
+        Optional<UserSubscription> subOpt = subscriptionRepository.findActiveSubscriptionByUserId(userId);
+
+        if (subOpt.isEmpty()) {
+            return new FreeSessionInfo(false, 0, 0, 0, null);
+        }
+
+        UserSubscription sub = subOpt.get();
+        if (!Boolean.TRUE.equals(sub.getPlan().getIsExpertPlan())) {
+            return new FreeSessionInfo(false, 0, 0, 0, null);
+        }
+
+        int total = Optional.ofNullable(sub.getPlan().getFreeSessionsPerCycle()).orElse(0);
+        if (total <= 0) {
+            return new FreeSessionInfo(true, 0, 0, 0, sub);
+        }
+
+        List<BookingStatus> statuses = List.of(
+                BookingStatus.PENDING,
+                BookingStatus.CONFIRMED,
+                BookingStatus.COMPLETED,
+                BookingStatus.DONE
+        );
+        long used = bookingRepository.countUsedFreeSessions(
+                userId,
+                statuses,
+                sub.getStartDate(),
+                sub.getEndDate()
+        );
+        long remaining = Math.max(0, total - used);
+        return new FreeSessionInfo(true, total, used, remaining, sub);
+    }
+
+    // 5.3 CHECK GIÁ (dùng helper free sessions)
     public PriceCheckResponseDTO checkBookingPrice(String userId, String expertId) {
         ExpertProfile expert = expertProfileRepository.findById(expertId)
                 .orElseThrow(() -> new ResourceNotFoundException("Expert not found"));
-        
-        Optional<UserSubscription> subOpt = subscriptionRepository.findActiveSubscriptionByUserId(userId);
-        
-        boolean isFree = false;
-        String msg = "Standard price applied.";
+        FreeSessionInfo info = calculateFreeSessions(userId);
 
-        if (subOpt.isPresent()) {
-            UserSubscription sub = subOpt.get();
-            if (Boolean.TRUE.equals(sub.getPlan().getIsExpertPlan())) {
-                UserBenefitUsage usage = getOrCreateUsage(userId, sub);
-                int limit = sub.getPlan().getFreeSessionsPerCycle();
-                int used = usage.getSessionsUsed();
-
-                if (used < limit) {
-                    isFree = true;
-                    msg = "FREE SESSION APPLIED (Used " + used + "/" + limit + ").";
-                } else {
-                    msg = "You have used all free sessions for this cycle.";
-                }
-            }
-        }
+        boolean isFree = info.hasSubscription && info.remaining > 0 && info.total > 0;
+        String msg = isFree
+                ? "FREE SESSION APPLIED (Used " + info.used + "/" + info.total + ")."
+                : (info.hasSubscription ? "You have used all free sessions for this cycle." : "Standard price applied.");
 
         return PriceCheckResponseDTO.builder()
                 .isFreeSession(isFree)
@@ -79,24 +116,35 @@ public class BookingService {
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
         ExpertProfile expertProfile = expertProfileRepository.findById(req.getExpertId())
                 .orElseThrow(() -> new ResourceNotFoundException("Expert not found"));
-
-        PriceCheckResponseDTO priceCheck = checkBookingPrice(userId, req.getExpertId());
-
-        if (priceCheck.isFreeSession()) {
-            UserSubscription sub = subscriptionRepository.findActiveSubscriptionByUserId(userId).get();
-            UserBenefitUsage usage = getOrCreateUsage(userId, sub);
-            usage.setSessionsUsed(usage.getSessionsUsed() + 1);
-            benefitUsageRepository.save(usage);
-        }
+        BigDecimal basePrice = expertProfile.getHourlyRate();
+        FreeSessionInfo info = calculateFreeSessions(userId);
+        boolean wantFree = Boolean.TRUE.equals(req.getUseFreeSession());
 
         Booking booking = new Booking();
         booking.setMember(member);
         booking.setExpert(expertProfile);
         booking.setBookingTime(req.getBookingTime());
-        booking.setOriginalPrice(priceCheck.getOriginalPrice());
-        booking.setFinalPrice(priceCheck.getFinalPrice());
-        booking.setIsFreeSession(priceCheck.isFreeSession());
-        booking.setStatus(Booking.BookingStatus.PENDING);
+        booking.setNote(req.getNote());
+
+        if (wantFree && info.hasSubscription && info.remaining > 0 && info.total > 0) {
+            booking.setIsFreeSession(true);
+            booking.setOriginalPrice(basePrice);
+            booking.setFinalPrice(BigDecimal.ZERO);
+            booking.setStatus(BookingStatus.CONFIRMED); // Free session: auto-confirm, không cần PayOS
+
+            // Đồng bộ bảng usage cũ nếu đang dùng
+            if (info.subscription != null) {
+                UserBenefitUsage usage = getOrCreateUsage(userId, info.subscription);
+                usage.setSessionsUsed(Optional.ofNullable(usage.getSessionsUsed()).orElse(0) + 1);
+                benefitUsageRepository.save(usage);
+            }
+        } else {
+            booking.setIsFreeSession(false);
+            booking.setOriginalPrice(basePrice);
+            booking.setFinalPrice(basePrice);
+            booking.setStatus(BookingStatus.PENDING); // Cần thanh toán PayOS
+        }
+
         booking.setMeetingLink(null);
 
         return bookingRepository.save(booking);
@@ -161,6 +209,7 @@ public class BookingService {
                 break;
 
             case COMPLETED:
+            case DONE:
                 if (currentStatus != Booking.BookingStatus.CONFIRMED) {
                     throw new BadRequestException("Chỉ có thể hoàn thành lịch đã được xác nhận.");
                 }
@@ -168,7 +217,9 @@ public class BookingService {
 
             case CANCELLED:
                 // Expert hủy kèo
-                if (currentStatus == Booking.BookingStatus.COMPLETED || currentStatus == Booking.BookingStatus.REJECTED) {
+                if (currentStatus == Booking.BookingStatus.COMPLETED
+                        || currentStatus == Booking.BookingStatus.DONE
+                        || currentStatus == Booking.BookingStatus.REJECTED) {
                     throw new BadRequestException("Lịch đã kết thúc, không thể hủy.");
                 }
                 if (req.getNote() == null || req.getNote().trim().isEmpty()) {
@@ -220,5 +271,28 @@ public class BookingService {
                     u.setSessionsUsed(0);
                     return benefitUsageRepository.save(u);
                 });
+    }
+
+    /**
+     * API helper cho FE: Thống kê lượt free sessions của user trong chu kỳ gói hiện tại.
+     */
+    public Map<String, Object> getMyFreeSessionsSummary(String userId) {
+        FreeSessionInfo info = calculateFreeSessions(userId);
+
+        Map<String, Object> result = new java.util.HashMap<>();
+
+        if (!info.hasSubscription) {
+            result.put("hasSubscription", false);
+            result.put("totalFreeSessions", 0);
+            result.put("used", 0);
+            result.put("remainingFreeSessions", 0);
+            return result;
+        }
+
+        result.put("hasSubscription", true);
+        result.put("totalFreeSessions", info.total);
+        result.put("used", info.used);
+        result.put("remainingFreeSessions", info.remaining);
+        return result;
     }
 }

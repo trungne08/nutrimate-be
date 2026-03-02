@@ -63,6 +63,7 @@ public class Booking {
         CONFIRMED,
         REJECTED,
         COMPLETED,
+        DONE,
         CANCELLED
     }
 }

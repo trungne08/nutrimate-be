@@ -42,8 +42,9 @@ public class FeedbackService {
             throw new ForbiddenException("Bạn không thể đánh giá lịch hẹn của người khác!");
         }
 
-        // 4. Chỉ cho phép đánh giá khi đã hoàn thành (COMPLETED)
-        if (booking.getStatus() != Booking.BookingStatus.COMPLETED) {
+        // 4. Chỉ cho phép đánh giá khi đã hoàn thành (COMPLETED / DONE)
+        if (booking.getStatus() != Booking.BookingStatus.COMPLETED
+                && booking.getStatus() != Booking.BookingStatus.DONE) {
             throw new BadRequestException("Chỉ có thể đánh giá sau khi lịch hẹn đã hoàn thành!");
         }
 

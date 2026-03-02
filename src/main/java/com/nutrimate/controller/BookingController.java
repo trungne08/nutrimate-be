@@ -1,7 +1,6 @@
 package com.nutrimate.controller;
 
 import com.nutrimate.dto.BookingRequestDTO;
-import com.nutrimate.dto.BookingStatusDTO;
 import com.nutrimate.dto.PriceCheckResponseDTO;
 import com.nutrimate.entity.Booking;
 import com.nutrimate.entity.User;
@@ -89,6 +88,16 @@ public class BookingController {
             @Parameter(hidden = true) Authentication authentication) {
         
         return ResponseEntity.ok(bookingService.getMyBookings(getCurrentUserId(authentication)));
+    }
+
+    @Operation(summary = "Xem lượt đặt lịch chuyên gia miễn phí còn lại trong chu kỳ gói hiện tại")
+    @GetMapping("/bookings/my-free-sessions")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<Map<String, Object>> getMyFreeSessions(
+            @Parameter(hidden = true) Authentication authentication) {
+
+        String userId = getCurrentUserId(authentication);
+        return ResponseEntity.ok(bookingService.getMyFreeSessionsSummary(userId));
     }
 
     @Operation(summary = "[Admin] View all bookings")
