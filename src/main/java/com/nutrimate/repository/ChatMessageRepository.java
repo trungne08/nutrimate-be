@@ -1,5 +1,6 @@
 package com.nutrimate.repository;
 
+import com.nutrimate.dto.RecentChatResponse;
 import com.nutrimate.entity.ChatMessage;
 import com.nutrimate.entity.ChatType;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -21,4 +22,24 @@ public interface ChatMessageRepository extends JpaRepository<ChatMessage, Long> 
             @Param("user1") String user1Id,
             @Param("user2") String user2Id,
             @Param("chatType") ChatType chatType);
+
+    @Query("SELECT new com.nutrimate.dto.RecentChatResponse(" +
+            "CASE WHEN m.senderId = :userId THEN m.receiverId ELSE m.senderId END, " +
+            "CASE WHEN m.senderId = :userId THEN COALESCE(receiver.fullName, '') ELSE COALESCE(sender.fullName, '') END, " +
+            "CASE WHEN m.senderId = :userId THEN receiver.avatarUrl ELSE sender.avatarUrl END, " +
+            "m.content, " +
+            "m.timestamp, " +
+            "m.chatType) " +
+            "FROM ChatMessage m " +
+            "JOIN User sender ON sender.id = m.senderId " +
+            "JOIN User receiver ON receiver.id = m.receiverId " +
+            "WHERE (m.senderId = :userId OR m.receiverId = :userId) " +
+            "AND m.timestamp = (" +
+            "   SELECT MAX(m2.timestamp) FROM ChatMessage m2 " +
+            "   WHERE m2.chatType = m.chatType " +
+            "     AND ((m2.senderId = m.senderId AND m2.receiverId = m.receiverId) " +
+            "       OR (m2.senderId = m.receiverId AND m2.receiverId = m.senderId))" +
+            ") " +
+            "ORDER BY m.timestamp DESC")
+    List<RecentChatResponse> findRecentChatsForUser(@Param("userId") String userId);
 }
