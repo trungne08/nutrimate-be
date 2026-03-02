@@ -32,23 +32,26 @@ public class RecipeController {
     private final RecipeService recipeService;
     private final UserRepository userRepository;
 
-    // Helper
+    // Helper: Lấy User ID từ sub (cognito_id) - Access Token Cognito mặc định không chứa email
     private String getCurrentUserId(Authentication authentication) {
         if (authentication == null || !authentication.isAuthenticated()) {
             return null;
         }
 
-        String email = null;
+        String cognitoId = null;
         Object principal = authentication.getPrincipal();
         if (principal instanceof Jwt)
-            email = ((Jwt) principal).getClaimAsString("email");
+            cognitoId = ((Jwt) principal).getClaimAsString("sub");
         else if (principal instanceof OidcUser)
-            email = ((OidcUser) principal).getEmail();
-        else if (principal instanceof OAuth2User)
-            email = ((OAuth2User) principal).getAttribute("email");
-        if (email == null)
+            cognitoId = ((OidcUser) principal).getSubject();
+        else if (principal instanceof OAuth2User) {
+            OAuth2User oauth2User = (OAuth2User) principal;
+            cognitoId = oauth2User.getAttribute("sub");
+            if (cognitoId == null) cognitoId = oauth2User.getName();
+        }
+        if (cognitoId == null || cognitoId.isBlank())
             return null;
-        return userRepository.findByEmail(email)
+        return userRepository.findByCognitoId(cognitoId)
                 .map(User::getId)
                 .orElse(null);
     }

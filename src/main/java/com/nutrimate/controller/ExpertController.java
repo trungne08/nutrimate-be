@@ -29,7 +29,6 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/experts")
@@ -67,47 +66,32 @@ public class ExpertController {
         return ResponseEntity.ok(expertService.getMyExpertBookings(userId));
     }
 
+    // Helper: Lấy User ID từ sub (cognito_id) - Access Token Cognito mặc định không chứa email
     private String getCurrentUserId(Authentication authentication) {
         if (authentication == null || !authentication.isAuthenticated()) {
             throw new BadRequestException("Vui lòng đăng nhập để thực hiện chức năng này");
         }
 
-        Object principal = authentication.getPrincipal();
         String cognitoId = null;
-        String email = null;
+        Object principal = authentication.getPrincipal();
 
-        // 1. Lấy thông tin từ Token
         if (principal instanceof Jwt) {
-            Jwt jwt = (Jwt) principal;
-            cognitoId = jwt.getClaimAsString("sub"); // Lấy UUID (luôn có)
-            email = jwt.getClaimAsString("email");   // Có thể null trong Access Token
+            cognitoId = ((Jwt) principal).getClaimAsString("sub");
         } else if (principal instanceof OidcUser) {
-            OidcUser oidcUser = (OidcUser) principal;
-            cognitoId = oidcUser.getName(); // Thường là sub
-            email = oidcUser.getEmail();
+            cognitoId = ((OidcUser) principal).getSubject();
         } else if (principal instanceof OAuth2User) {
             OAuth2User oauth2User = (OAuth2User) principal;
-            cognitoId = oauth2User.getName();
-            email = oauth2User.getAttribute("email");
+            cognitoId = oauth2User.getAttribute("sub");
+            if (cognitoId == null) cognitoId = oauth2User.getName();
         }
 
-        // 2. Ưu tiên tìm bằng Cognito ID (Chính xác nhất)
-        if (cognitoId != null) {
-            Optional<User> userByCognito = userRepository.findByCognitoId(cognitoId);
-            if (userByCognito.isPresent()) {
-                return userByCognito.get().getId();
-            }
+        if (cognitoId == null || cognitoId.isBlank()) {
+            throw new BadRequestException("Token không hợp lệ (Không tìm thấy sub)");
         }
 
-        // 3. Nếu không tìm thấy bằng Cognito ID thì mới fallback sang Email
-        if (email != null) {
-            String finalEmail = email; // biến final để dùng trong lambda
-            return userRepository.findByEmail(finalEmail)
-                    .map(User::getId)
-                    .orElseThrow(() -> new ResourceNotFoundException("User không tồn tại (Email: " + finalEmail + ")"));
-        }
-
-        throw new BadRequestException("Token không hợp lệ (Không tìm thấy sub/email)");
+        return userRepository.findByCognitoId(cognitoId)
+                .map(User::getId)
+                .orElseThrow(() -> new ResourceNotFoundException("User không tồn tại trong hệ thống"));
     }
     
     @Operation(summary = "Apply to become an Expert")

@@ -31,28 +31,30 @@ public class ForumController {
     private final ForumService forumService;
     private final UserRepository userRepository;
 
-    // Helper: Lấy User ID chuẩn
+    // Helper: Lấy User ID từ sub (cognito_id) - Access Token Cognito mặc định không chứa email
     private String getCurrentUserId(Authentication authentication) {
         if (authentication == null || !authentication.isAuthenticated()) {
             throw new BadRequestException("Vui lòng đăng nhập để thực hiện chức năng này");
         }
 
-        String email = null;
+        String cognitoId = null;
         Object principal = authentication.getPrincipal();
 
         if (principal instanceof Jwt) {
-            email = ((Jwt) principal).getClaimAsString("email");
+            cognitoId = ((Jwt) principal).getClaimAsString("sub");
         } else if (principal instanceof OidcUser) {
-            email = ((OidcUser) principal).getEmail();
+            cognitoId = ((OidcUser) principal).getSubject();
         } else if (principal instanceof OAuth2User) {
-            email = ((OAuth2User) principal).getAttribute("email");
+            OAuth2User oauth2User = (OAuth2User) principal;
+            cognitoId = oauth2User.getAttribute("sub");
+            if (cognitoId == null) cognitoId = oauth2User.getName();
         }
 
-        if (email == null) {
-            throw new BadRequestException("Không tìm thấy email trong thông tin xác thực");
+        if (cognitoId == null || cognitoId.isBlank()) {
+            throw new BadRequestException("Không tìm thấy sub trong thông tin xác thực");
         }
 
-        return userRepository.findByEmail(email)
+        return userRepository.findByCognitoId(cognitoId)
                 .map(User::getId)
                 .orElseThrow(() -> new ResourceNotFoundException("User không tồn tại trong hệ thống"));
     }

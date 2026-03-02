@@ -56,10 +56,12 @@ public class FeedbackController {
 
         if (principal instanceof Jwt) {
             cognitoId = ((Jwt) principal).getClaimAsString("sub");
-        } else if (principal instanceof OidcUser) {
-            cognitoId = ((OidcUser) principal).getName();
+        } else         if (principal instanceof OidcUser) {
+            cognitoId = ((OidcUser) principal).getSubject();
         } else if (principal instanceof OAuth2User) {
-            cognitoId = ((OAuth2User) principal).getName();
+            OAuth2User oauth2User = (OAuth2User) principal;
+            cognitoId = oauth2User.getAttribute("sub");
+            if (cognitoId == null) cognitoId = oauth2User.getName();
         }
 
         if (cognitoId != null) {
