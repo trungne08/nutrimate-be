@@ -100,6 +100,16 @@ public class BookingController {
         return ResponseEntity.ok(bookingService.getMyFreeSessionsSummary(userId));
     }
 
+    @Operation(summary = "[Member] Tự hủy lịch đặt của mình")
+    @PutMapping("/bookings/{bookingId}/cancel")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<Booking> cancelBooking(
+            @PathVariable String bookingId,
+            @Parameter(hidden = true) Authentication authentication) {
+        String userId = getCurrentUserId(authentication);
+        return ResponseEntity.ok(bookingService.cancelBookingByMember(userId, bookingId));
+    }
+
     @Operation(summary = "[Admin] View all bookings")
     @GetMapping("/admin/bookings")
     @PreAuthorize("hasRole('ADMIN')")

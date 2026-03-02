@@ -243,6 +243,28 @@ public class BookingService {
     }
 
     /**
+     * Khách hàng (Member) tự hủy lịch đặt của chính họ.
+     * Chỉ hủy được khi status là PENDING hoặc CONFIRMED.
+     */
+    @Transactional
+    public Booking cancelBookingByMember(String memberId, String bookingId) {
+        Booking booking = bookingRepository.findById(bookingId)
+                .orElseThrow(() -> new ResourceNotFoundException("Booking không tồn tại"));
+
+        if (!booking.getMember().getId().equals(memberId)) {
+            throw new ForbiddenException("Bạn không có quyền hủy lịch đặt này");
+        }
+
+        BookingStatus status = booking.getStatus();
+        if (status != BookingStatus.PENDING && status != BookingStatus.CONFIRMED) {
+            throw new BadRequestException("Không thể hủy lịch ở trạng thái này");
+        }
+
+        booking.setStatus(BookingStatus.CANCELLED);
+        return bookingRepository.save(booking);
+    }
+
+    /**
      * Lấy danh sách khung giờ còn trống của một Expert trong ngày.
      */
     public List<String> getExpertAvailableSlots(String expertId, LocalDate date) {
