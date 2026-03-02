@@ -9,6 +9,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import vn.payos.exception.PayOSException;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -22,11 +23,20 @@ public class PaymentController {
 
     private final PaymentService paymentService;
 
-    @Operation(summary = "Tạo link thanh toán PayOS")
+    @Operation(summary = "Tạo link thanh toán PayOS (Subscription/Plan)")
     @PostMapping("/create-payment-link")
     public ResponseEntity<Map<String, String>> createPaymentLink(
-            @Valid @RequestBody CreatePaymentLinkRequestDTO request) {
+            @Valid @RequestBody CreatePaymentLinkRequestDTO request) throws PayOSException {
         String checkoutUrl = paymentService.createPaymentLink(request);
+        return ResponseEntity.ok(Map.of("checkoutUrl", checkoutUrl));
+    }
+
+    @Operation(summary = "Tạo link thanh toán cho Booking")
+    @PostMapping("/create-booking-link")
+    public ResponseEntity<Map<String, String>> createBookingPaymentLink(
+            @RequestBody Map<String, String> payload) throws PayOSException {
+        String bookingId = payload.get("bookingId");
+        String checkoutUrl = paymentService.createBookingPaymentLink(bookingId);
         return ResponseEntity.ok(Map.of("checkoutUrl", checkoutUrl));
     }
 

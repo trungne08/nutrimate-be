@@ -52,6 +52,12 @@ public class Booking {
     @Column(name = "meeting_link")
     private String meetingLink;
 
+    @Column(name = "order_code")
+    private Long orderCode;
+
+    @Column(name = "created_at", insertable = false, updatable = false)
+    private LocalDateTime createdAt;
+
     public enum BookingStatus {
         PENDING,
         CONFIRMED,

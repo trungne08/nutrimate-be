@@ -4,7 +4,6 @@ import com.nutrimate.dto.BookingRequestDTO;
 import com.nutrimate.dto.BookingStatusDTO;
 import com.nutrimate.dto.PriceCheckResponseDTO;
 import com.nutrimate.entity.*;
-import com.nutrimate.entity.Booking.BookingStatus;
 import com.nutrimate.exception.ForbiddenException;
 import com.nutrimate.exception.ResourceNotFoundException;
 import com.nutrimate.exception.BadRequestException;
@@ -15,8 +14,12 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 @Service
 @RequiredArgsConstructor
 public class BookingService {
@@ -26,6 +29,15 @@ public class BookingService {
     private final UserSubscriptionRepository subscriptionRepository;
     private final UserBenefitUsageRepository benefitUsageRepository;
     private final UserRepository userRepository;
+
+    private static final List<String> FIXED_TIME_SLOTS = List.of(
+            // Sáng
+            "08:00", "09:00", "10:00", "11:00",
+            // Chiều
+            "13:30", "14:30", "15:30", "16:30",
+            // Tối
+            "19:00", "20:00", "21:00"
+    );
 
     // 5.3 CHECK GIÁ (Quan trọng: Logic trừ lượt Free)
     public PriceCheckResponseDTO checkBookingPrice(String userId, String expertId) {
@@ -177,6 +189,25 @@ public class BookingService {
     // 5.7 ADMIN XEM ALL
     public List<Booking> getAllBookings(LocalDate date) {
         return bookingRepository.findAllByDate(date);
+    }
+
+    /**
+     * Lấy danh sách khung giờ còn trống của một Expert trong ngày.
+     */
+    public List<String> getExpertAvailableSlots(String expertId, LocalDate date) {
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("HH:mm");
+
+        List<Booking> bookings = bookingRepository.findByExpertAndDateWithActiveStatus(expertId, date);
+
+        Set<String> busySlots = new LinkedHashSet<>();
+        for (Booking b : bookings) {
+            LocalTime time = b.getBookingTime().toLocalTime();
+            busySlots.add(time.format(formatter));
+        }
+
+        return FIXED_TIME_SLOTS.stream()
+                .filter(slot -> !busySlots.contains(slot))
+                .toList();
     }
 
     // Helper: Lấy hoặc tạo Usage record

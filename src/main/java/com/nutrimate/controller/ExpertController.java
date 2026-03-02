@@ -23,8 +23,12 @@ import org.springframework.security.oauth2.core.oidc.user.OidcUser;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.format.annotation.DateTimeFormat;
+
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 @RestController
@@ -140,5 +144,18 @@ public class ExpertController {
         
         // Gọi hàm service đã nâng cấp
         return ResponseEntity.ok(bookingService.updateStatus(userId, bookingId, req));
+    }
+
+    @Operation(summary = "Lấy danh sách khung giờ trống của Expert theo ngày")
+    @GetMapping("/{expertId}/availability")
+    public ResponseEntity<Map<String, Object>> getExpertAvailability(
+            @PathVariable String expertId,
+            @RequestParam("date") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+
+        List<String> availableSlots = bookingService.getExpertAvailableSlots(expertId, date);
+        return ResponseEntity.ok(Map.of(
+                "date", date,
+                "availableSlots", availableSlots
+        ));
     }
 }
