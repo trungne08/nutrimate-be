@@ -8,8 +8,13 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
+
 @Repository
 public interface RecipeRepository extends JpaRepository<Recipe, String> {
+
+    @Query(value = "SELECT * FROM Recipes ORDER BY RAND() LIMIT 5", nativeQuery = true)
+    List<Recipe> findRandomRecipes();
     // Tìm kiếm công thức theo tên (có phân trang)
     Page<Recipe> findByTitleContainingIgnoreCase(String title, Pageable pageable);
 
