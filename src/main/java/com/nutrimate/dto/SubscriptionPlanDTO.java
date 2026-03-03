@@ -3,6 +3,8 @@ package com.nutrimate.dto;
 import lombok.Data;
 import java.math.BigDecimal;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 @Data
 public class SubscriptionPlanDTO {
     private String id;
@@ -14,5 +16,6 @@ public class SubscriptionPlanDTO {
     private Boolean isExpertPlan;
     private Integer freeSessionsPerCycle;
     private String description;
+    @JsonProperty("isActive")
     private Boolean isActive;
 }
