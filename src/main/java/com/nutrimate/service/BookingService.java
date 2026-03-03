@@ -317,4 +317,26 @@ public class BookingService {
         result.put("remainingFreeSessions", info.remaining);
         return result;
     }
+
+    public Booking getBookingDetail(String bookingId, String currentUserId, String currentUserRole) {
+        
+        // 1. Tìm Booking trong DB
+        Booking booking = bookingRepository.findById(bookingId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy lịch hẹn với ID: " + bookingId));
+
+        // 2. Admin thì cho qua luôn, khỏi check
+        if (currentUserRole != null && currentUserRole.contains("ADMIN")) {
+            return booking;
+        }
+
+        // 3. Kiểm tra xem user hiện tại có phải là chủ của lịch hẹn hoặc chuyên gia nhận lịch không
+        boolean isMemberOwner = booking.getMember().getId().equals(currentUserId);
+        boolean isExpertOwner = booking.getExpert().getUser().getId().equals(currentUserId);
+
+        if (!isMemberOwner && !isExpertOwner) {
+            throw new ForbiddenException("Bạn không có quyền xem thông tin lịch hẹn này!");
+        }
+
+        return booking;
+    }
 }

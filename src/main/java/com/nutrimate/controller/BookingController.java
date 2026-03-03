@@ -15,6 +15,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.core.oidc.user.OidcUser;
 import org.springframework.security.oauth2.core.user.OAuth2User;
@@ -22,6 +23,7 @@ import org.springframework.web.bind.annotation.*;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 @RestController
 @RequestMapping("/api")
@@ -115,5 +117,51 @@ public class BookingController {
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<List<Booking>> getAllBookings(@RequestParam(required = false) LocalDate date) {
         return ResponseEntity.ok(bookingService.getAllBookings(date));
+    }
+
+    @Operation(summary = "Lấy chi tiết 1 lịch hẹn (Booking) theo ID")
+    @GetMapping("/{id}")
+    @PreAuthorize("hasAnyRole('MEMBER', 'EXPERT', 'ADMIN')")
+    public ResponseEntity<?> getBookingDetail(
+            @PathVariable String id,
+            @Parameter(hidden = true) Authentication authentication,
+            @Parameter(hidden = true) @AuthenticationPrincipal org.springframework.security.oauth2.core.oidc.user.OidcUser oidcUser,
+            @Parameter(hidden = true) @AuthenticationPrincipal org.springframework.security.oauth2.core.user.OAuth2User oauth2User) {
+
+        // 1. TÓM ĐỊNH DANH TỪ TOKEN 
+        String email = null;
+        String cognitoId = null;
+
+        if (oidcUser != null) {
+            email = oidcUser.getEmail();
+            cognitoId = oidcUser.getSubject();
+        } else if (oauth2User != null) {
+            email = oauth2User.getAttribute("email");
+        } else if (authentication != null && authentication.getPrincipal() instanceof org.springframework.security.oauth2.jwt.Jwt) {
+            org.springframework.security.oauth2.jwt.Jwt jwt = (org.springframework.security.oauth2.jwt.Jwt) authentication.getPrincipal();
+            email = jwt.getClaimAsString("email");
+            cognitoId = jwt.getSubject(); // Lấy "sub"
+            if (cognitoId == null) cognitoId = jwt.getClaimAsString("username");
+        }
+
+        if ((email == null || email.trim().isEmpty()) && (cognitoId == null || cognitoId.trim().isEmpty())) {
+            return ResponseEntity.status(401).body(Map.of("success", false, "message", "Vui lòng đăng nhập!"));
+        }
+
+        Optional<User> userOpt = Optional.empty();
+        if (email != null && !email.trim().isEmpty()) {
+            userOpt = userRepository.findByEmail(email);
+        }
+        if (userOpt.isEmpty() && cognitoId != null && !cognitoId.trim().isEmpty()) {
+            userOpt = userRepository.findByCognitoId(cognitoId);
+        }
+
+        if (userOpt.isEmpty()) {
+            return ResponseEntity.status(404).body(Map.of("success", false, "message", "Không tìm thấy User trong hệ thống!"));
+        }
+
+        User currentUser = userOpt.get();
+        Booking booking = bookingService.getBookingDetail(id, currentUser.getId(), currentUser.getRole().name());
+        return ResponseEntity.ok(booking);
     }
 }
