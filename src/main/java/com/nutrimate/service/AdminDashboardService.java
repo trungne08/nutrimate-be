@@ -46,9 +46,65 @@ public class AdminDashboardService {
     }
 
     // Lấy danh sách Giao dịch (Phân trang)
-    public Page<Booking> getPaginatedTransactions(int page, int size) {
-        Pageable pageable = PageRequest.of(page, size, Sort.by("bookingTime").descending());
-        return bookingRepository.findAll(pageable);
+    public Map<String, Object> getTransactionHistory(int page, int size) {
+        List<com.nutrimate.dto.TransactionDTO> allTransactions = new java.util.ArrayList<>();
+
+        // 1. Lấy tất cả giao dịch Booking (chỉ lấy những đơn có orderCode)
+        // Nếu file repository của bác chưa có hàm findAll thì dùng hàm mặc định
+        List<com.nutrimate.entity.Booking> bookings = bookingRepository.findAll();
+        for (com.nutrimate.entity.Booking b : bookings) {
+            if (b.getOrderCode() != null) {
+                allTransactions.add(com.nutrimate.dto.TransactionDTO.builder()
+                        .orderCode(b.getOrderCode())
+                        .userFullName(b.getMember() != null ? b.getMember().getFullName() : "Khách ẩn danh")
+                        .userEmail(b.getMember() != null ? b.getMember().getEmail() : "")
+                        .type("BOOKING")
+                        .description("Đặt lịch chuyên gia " + (b.getExpert() != null ? b.getExpert().getUser().getFullName() : ""))
+                        .amount(b.getFinalPrice() != null ? b.getFinalPrice().doubleValue() : 0.0)
+                        .status(b.getStatus() != null ? b.getStatus().name() : "UNKNOWN")
+                        // Nếu entity Booking của bác dùng tên biến khác (như createdAt), hãy đổi lại chỗ này:
+                        .transactionDate(b.getBookingTime() != null ? b.getBookingTime() : java.time.LocalDateTime.now())
+                        .build());
+            }
+        }
+
+        // 2. Lấy tất cả giao dịch Mua gói Subscription (chỉ lấy những đơn có orderCode)
+        List<com.nutrimate.entity.UserSubscription> subscriptions = userSubscriptionRepository.findAll();
+        for (com.nutrimate.entity.UserSubscription s : subscriptions) {
+            if (s.getOrderCode() != null) {
+                allTransactions.add(com.nutrimate.dto.TransactionDTO.builder()
+                        .orderCode(s.getOrderCode())
+                        .userFullName(s.getUser() != null ? s.getUser().getFullName() : "Khách ẩn danh")
+                        .userEmail(s.getUser() != null ? s.getUser().getEmail() : "")
+                        .type("SUBSCRIPTION")
+                        .description("Đăng ký gói " + (s.getPlan() != null ? s.getPlan().getPlanName() : ""))
+                        .amount(s.getPlan() != null && s.getPlan().getPrice() != null ? s.getPlan().getPrice().doubleValue() : 0.0)
+                        .status(s.getStatus() != null ? s.getStatus().name() : "UNKNOWN")
+                        // Nếu chưa có startDate (PENDING), dùng thời gian hiện tại để sort không bị lỗi
+                        .transactionDate(s.getStartDate() != null ? s.getStartDate() : java.time.LocalDateTime.now())
+                        .build());
+            }
+        }
+
+        // 3. Sắp xếp danh sách tổng hợp theo thời gian (Mới nhất lên đầu)
+        allTransactions.sort((t1, t2) -> t2.getTransactionDate().compareTo(t1.getTransactionDate()));
+
+        // 4. Xử lý phân trang (Pagination) thủ công bằng Java
+        int totalItems = allTransactions.size();
+        int totalPages = (int) Math.ceil((double) totalItems / size);
+        int start = Math.min(page * size, totalItems);
+        int end = Math.min(start + size, totalItems);
+
+        List<com.nutrimate.dto.TransactionDTO> pagedTransactions = allTransactions.subList(start, end);
+
+        // 5. Đóng gói trả về Frontend
+        Map<String, Object> response = new java.util.HashMap<>();
+        response.put("transactions", pagedTransactions);
+        response.put("currentPage", page);
+        response.put("totalItems", totalItems);
+        response.put("totalPages", totalPages);
+
+        return response;
     }
 
     public Page<Feedback> getPaginatedFeedbacks(int page, int size) {
