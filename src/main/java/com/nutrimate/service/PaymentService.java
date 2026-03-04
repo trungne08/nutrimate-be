@@ -3,18 +3,31 @@ package com.nutrimate.service;
 import com.nutrimate.dto.CreatePaymentLinkRequestDTO;
 import com.nutrimate.entity.Booking;
 import com.nutrimate.entity.Booking.BookingStatus;
+import com.nutrimate.entity.PaymentOrderMapping;
+import com.nutrimate.entity.SubscriptionPlan;
+import com.nutrimate.entity.User;
+import com.nutrimate.entity.UserSubscription;
+import com.nutrimate.entity.Payment;
+import com.nutrimate.entity.Payment.PaymentMethod;
+import com.nutrimate.entity.Payment.PaymentStatus;
+import com.nutrimate.entity.Payment.PaymentType;
+import com.nutrimate.entity.UserSubscription.SubscriptionStatus;
 import com.nutrimate.exception.BadRequestException;
 import com.nutrimate.exception.ResourceNotFoundException;
-import com.nutrimate.repository.BookingRepository;
+import com.nutrimate.repository.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import vn.payos.PayOS;
 import vn.payos.exception.PayOSException;
 import vn.payos.model.v2.paymentRequests.CreatePaymentLinkRequest;
 import vn.payos.model.v2.paymentRequests.CreatePaymentLinkResponse;
 import vn.payos.model.webhooks.WebhookData;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
 
 @Service
 @RequiredArgsConstructor
@@ -26,6 +39,11 @@ public class PaymentService {
 
     private final PayOS payOS;
     private final BookingRepository bookingRepository;
+    private final PaymentOrderMappingRepository paymentOrderMappingRepository;
+    private final UserRepository userRepository;
+    private final SubscriptionPlanRepository subscriptionPlanRepository;
+    private final UserSubscriptionRepository userSubscriptionRepository;
+    private final PaymentRepository paymentRepository;
 
     /**
      * Tạo orderCode duy nhất (timestamp ms + nano suffix).
@@ -42,8 +60,18 @@ public class PaymentService {
     /** PayOS giới hạn description tối đa 25 ký tự. */
     private static final int MAX_DESCRIPTION_LENGTH = 25;
 
+    @Transactional
     public String createPaymentLink(CreatePaymentLinkRequestDTO request) throws PayOSException {
         long orderCode = generateOrderCode();
+
+        // Lưu mapping orderCode -> userId, planId để webhook xử lý subscription
+        PaymentOrderMapping mapping = new PaymentOrderMapping();
+        mapping.setOrderCode(orderCode);
+        mapping.setUserId(request.getUserId());
+        mapping.setPlanId(request.getPlanId());
+        mapping.setAmount(request.getAmount().longValue());
+        paymentOrderMappingRepository.save(mapping);
+
         String desc = "NUTRI " + truncate(request.getUserId(), 8) + " " + truncate(request.getPlanId(), 8);
         String description = desc.length() <= MAX_DESCRIPTION_LENGTH ? desc : desc.substring(0, MAX_DESCRIPTION_LENGTH);
 
@@ -102,6 +130,7 @@ public class PaymentService {
         return response.getCheckoutUrl();
     }
 
+    @Transactional
     public void processPayOSWebhook(Object webhookBody) {
         WebhookData data = payOS.webhooks().verify(webhookBody);
         if (!"00".equals(data.getCode())) {
@@ -112,14 +141,57 @@ public class PaymentService {
         Long orderCode = data.getOrderCode();
         log.info("PayOS webhook success, orderCode={}", orderCode);
 
-        if (orderCode != null) {
-            bookingRepository.findByOrderCode(orderCode).ifPresent(booking -> {
-                if (booking.getStatus() == BookingStatus.PENDING) {
-                    booking.setStatus(BookingStatus.CONFIRMED);
-                    bookingRepository.save(booking);
-                    log.info("Đã cập nhật Booking {} sang trạng thái CONFIRMED từ PayOS webhook", booking.getId());
-                }
-            });
+        if (orderCode == null) return;
+
+        // 1. Thử xử lý Booking trước
+        var bookingOpt = bookingRepository.findByOrderCode(orderCode);
+        if (bookingOpt.isPresent()) {
+            Booking booking = bookingOpt.get();
+            if (booking.getStatus() == BookingStatus.PENDING) {
+                booking.setStatus(BookingStatus.CONFIRMED);
+                bookingRepository.save(booking);
+                log.info("Đã cập nhật Booking {} sang trạng thái CONFIRMED từ PayOS webhook", booking.getId());
+            }
+            return;
         }
+
+        // 2. Nếu không phải Booking thì xử lý Subscription
+        paymentOrderMappingRepository.findByOrderCode(orderCode).ifPresent(mapping -> {
+            try {
+                User user = userRepository.findById(mapping.getUserId())
+                        .orElseThrow(() -> new ResourceNotFoundException("User không tồn tại: " + mapping.getUserId()));
+                SubscriptionPlan plan = subscriptionPlanRepository.findById(mapping.getPlanId())
+                        .orElseThrow(() -> new ResourceNotFoundException("Plan không tồn tại: " + mapping.getPlanId()));
+
+                LocalDateTime now = LocalDateTime.now();
+                LocalDateTime endDate = now.plusDays(plan.getDurationDays() != null ? plan.getDurationDays() : 30);
+
+                UserSubscription sub = new UserSubscription();
+                sub.setUser(user);
+                sub.setPlan(plan);
+                sub.setStartDate(now);
+                sub.setEndDate(endDate);
+                sub.setStatus(SubscriptionStatus.Active);
+                sub.setAutoRenew(false);
+                userSubscriptionRepository.save(sub);
+
+                Payment payment = new Payment();
+                payment.setUser(user);
+                payment.setRelatedId(sub.getId());
+                payment.setPaymentType(PaymentType.SUBSCRIPTION);
+                payment.setAmount(BigDecimal.valueOf(mapping.getAmount() != null ? mapping.getAmount() : 0));
+                payment.setPaymentMethod(PaymentMethod.BANK);
+                payment.setStatus(PaymentStatus.SUCCESS);
+                payment.setPaymentDate(now);
+                paymentRepository.save(payment);
+
+                paymentOrderMappingRepository.delete(mapping);
+
+                log.info("Đã tạo UserSubscription {} cho user {} plan {} từ PayOS webhook orderCode={}", sub.getId(), user.getId(), plan.getPlanName(), orderCode);
+            } catch (Exception e) {
+                log.error("Lỗi xử lý webhook Subscription orderCode={}", orderCode, e);
+                throw e;
+            }
+        });
     }
 }
