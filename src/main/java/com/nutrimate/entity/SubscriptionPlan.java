@@ -8,6 +8,8 @@ import lombok.Setter;
 
 import java.math.BigDecimal;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 @Entity
 @Table(name = "`Subscription_Plans`")
 @Getter
@@ -47,5 +49,6 @@ public class SubscriptionPlan {
     private String description;
     
     @Column(name = "is_active", nullable = false)
+    @JsonProperty("isActive")
     private Boolean isActive;
 }

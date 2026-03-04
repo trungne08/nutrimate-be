@@ -51,12 +51,19 @@ public class SubscriptionController {
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> updatePlan(@PathVariable String id, @RequestBody SubscriptionPlan planRequest) {
         return planRepository.findById(id).map(plan -> {
-            plan.setPlanName(planRequest.getPlanName());
-            plan.setPrice(planRequest.getPrice());
-            plan.setDurationDays(planRequest.getDurationDays());
-            plan.setCanUseAiCoach(planRequest.getCanUseAiCoach());
-            plan.setIsExpertPlan(planRequest.getIsExpertPlan());
-            // ... update other fields
+            
+            if (planRequest.getPlanName() != null) plan.setPlanName(planRequest.getPlanName());
+            if (planRequest.getPrice() != null) plan.setPrice(planRequest.getPrice());
+            if (planRequest.getDurationDays() != null) plan.setDurationDays(planRequest.getDurationDays());
+            
+            if (planRequest.getCanAccessBasicContent() != null) plan.setCanAccessBasicContent(planRequest.getCanAccessBasicContent());
+            if (planRequest.getCanUseAiCoach() != null) plan.setCanUseAiCoach(planRequest.getCanUseAiCoach());
+            if (planRequest.getIsExpertPlan() != null) plan.setIsExpertPlan(planRequest.getIsExpertPlan());
+            if (planRequest.getFreeSessionsPerCycle() != null) plan.setFreeSessionsPerCycle(planRequest.getFreeSessionsPerCycle());
+            
+            if (planRequest.getDescription() != null) plan.setDescription(planRequest.getDescription());
+            if (planRequest.getIsActive() != null) plan.setIsActive(planRequest.getIsActive());
+
             return ResponseEntity.ok(planRepository.save(plan));
         }).orElse(ResponseEntity.notFound().build());
     }
