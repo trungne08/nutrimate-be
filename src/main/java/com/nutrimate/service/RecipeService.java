@@ -13,6 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.Optional;
 
 @Service
@@ -46,7 +47,12 @@ public class RecipeService {
         if (userId == null || userId.trim().isEmpty()) {
             throw new ForbiddenException("Vui lòng đăng nhập tài khoản để xem chi tiết công thức!");
         }
-        Optional<UserSubscription> activeSubOpt = userSubscriptionRepository.findActiveSubscriptionByUserId(userId);
+        Optional<UserSubscription> activeSubOpt = userSubscriptionRepository
+                .findFirstByUser_IdAndStatusAndEndDateAfterOrderByEndDateDesc(
+                        userId,
+                        UserSubscription.SubscriptionStatus.Active,
+                        LocalDateTime.now()
+                );
         boolean isPremium = false;
         if (activeSubOpt.isPresent()) {
             String planName = activeSubOpt.get().getPlan().getPlanName().toUpperCase();

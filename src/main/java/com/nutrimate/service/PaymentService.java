@@ -60,6 +60,11 @@ public class PaymentService {
     /** PayOS giới hạn description tối đa 25 ký tự. */
     private static final int MAX_DESCRIPTION_LENGTH = 25;
 
+    private boolean isFreePlan(SubscriptionPlan plan) {
+        if (plan == null || plan.getPrice() == null) return false;
+        return plan.getPrice().compareTo(BigDecimal.ZERO) == 0;
+    }
+
     @Transactional
     public String createPaymentLink(CreatePaymentLinkRequestDTO request) throws PayOSException {
         long orderCode = generateOrderCode();
@@ -164,20 +169,55 @@ public class PaymentService {
                         .orElseThrow(() -> new ResourceNotFoundException("Plan không tồn tại: " + mapping.getPlanId()));
 
                 LocalDateTime now = LocalDateTime.now();
-                LocalDateTime endDate = now.plusDays(plan.getDurationDays() != null ? plan.getDurationDays() : 30);
+                int extraDays = plan.getDurationDays() != null ? plan.getDurationDays() : 30;
 
-                UserSubscription sub = new UserSubscription();
-                sub.setUser(user);
-                sub.setPlan(plan);
-                sub.setStartDate(now);
-                sub.setEndDate(endDate);
-                sub.setStatus(SubscriptionStatus.Active);
-                sub.setAutoRenew(false);
-                userSubscriptionRepository.save(sub);
+                // Tìm gói đang Active (nếu có)
+                var activeOpt = userSubscriptionRepository
+                        .findFirstByUser_IdAndStatusAndEndDateAfterOrderByEndDateDesc(
+                                user.getId(),
+                                SubscriptionStatus.Active,
+                                now
+                        );
+
+                UserSubscription sub;
+
+                if (activeOpt.isEmpty() || isFreePlan(activeOpt.get().getPlan())) {
+                    // Chưa có gói trả phí hoặc đang dùng Free -> dùng/thay thế 1 record
+                    sub = activeOpt.orElseGet(() -> {
+                        UserSubscription us = new UserSubscription();
+                        us.setUser(user);
+                        us.setAutoRenew(false);
+                        return us;
+                    });
+                    sub.setPlan(plan);
+                    sub.setStartDate(now);
+                    sub.setEndDate(now.plusDays(extraDays));
+                    sub.setStatus(SubscriptionStatus.Active);
+                } else {
+                    // Đã có gói trả phí -> cộng dồn thời gian
+                    sub = activeOpt.get();
+
+                    BigDecimal currentPrice = sub.getPlan() != null && sub.getPlan().getPrice() != null
+                            ? sub.getPlan().getPrice()
+                            : BigDecimal.ZERO;
+                    BigDecimal newPrice = plan.getPrice() != null ? plan.getPrice() : BigDecimal.ZERO;
+
+                    // Nếu gói mới đắt hơn -> nâng cấp lên plan mới
+                    if (newPrice.compareTo(currentPrice) > 0) {
+                        sub.setPlan(plan);
+                    }
+
+                    LocalDateTime baseEnd = sub.getEndDate() != null && sub.getEndDate().isAfter(now)
+                            ? sub.getEndDate()
+                            : now;
+                    sub.setEndDate(baseEnd.plusDays(extraDays));
+                }
+
+                UserSubscription savedSub = userSubscriptionRepository.save(sub);
 
                 Payment payment = new Payment();
                 payment.setUser(user);
-                payment.setRelatedId(sub.getId());
+                payment.setRelatedId(savedSub.getId());
                 payment.setPaymentType(PaymentType.SUBSCRIPTION);
                 payment.setAmount(BigDecimal.valueOf(mapping.getAmount() != null ? mapping.getAmount() : 0));
                 payment.setPaymentMethod(PaymentMethod.BANK);

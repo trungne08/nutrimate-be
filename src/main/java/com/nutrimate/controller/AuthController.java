@@ -4,6 +4,7 @@ import com.nutrimate.dto.UpdateProfileRequest;
 import com.nutrimate.entity.HealthProfile;
 import com.nutrimate.entity.User;
 import com.nutrimate.entity.UserSubscription;
+import com.nutrimate.entity.UserSubscription.SubscriptionStatus;
 import com.nutrimate.repository.UserSubscriptionRepository;
 import com.nutrimate.repository.HealthProfileRepository;
 import com.nutrimate.repository.UserRepository;
@@ -201,7 +202,12 @@ public class AuthController {
             userInfo.put("avatarUrl", user.getAvatarUrl() != null ? user.getAvatarUrl() : "");
             
             // 🚀 ĐOẠN MỚI: TÌM VÀ GẮN GÓI SUBSCRIPTION VÀO RESPONSE
-            Optional<UserSubscription> activeSub = userSubscriptionRepository.findActiveSubscriptionByUserId(user.getId());
+            Optional<UserSubscription> activeSub = userSubscriptionRepository
+                    .findFirstByUser_IdAndStatusAndEndDateAfterOrderByEndDateDesc(
+                            user.getId(),
+                            SubscriptionStatus.Active,
+                            java.time.LocalDateTime.now()
+                    );
             if (activeSub.isPresent()) {
                 UserSubscription sub = activeSub.get();
                 Map<String, Object> subInfo = new HashMap<>();

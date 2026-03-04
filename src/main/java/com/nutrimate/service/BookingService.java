@@ -15,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.LinkedHashSet;
@@ -59,7 +60,12 @@ public class BookingService {
     }
 
     private FreeSessionInfo calculateFreeSessions(String userId) {
-        Optional<UserSubscription> subOpt = subscriptionRepository.findActiveSubscriptionByUserId(userId);
+        Optional<UserSubscription> subOpt = subscriptionRepository
+                .findFirstByUser_IdAndStatusAndEndDateAfterOrderByEndDateDesc(
+                        userId,
+                        UserSubscription.SubscriptionStatus.Active,
+                        LocalDateTime.now()
+                );
 
         if (subOpt.isEmpty()) {
             return new FreeSessionInfo(false, 0, 0, 0, null);

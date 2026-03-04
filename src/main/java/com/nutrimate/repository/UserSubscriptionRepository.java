@@ -1,17 +1,22 @@
 package com.nutrimate.repository;
 
 import com.nutrimate.entity.UserSubscription;
+import com.nutrimate.entity.UserSubscription.SubscriptionStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
+import java.time.LocalDateTime;
 import java.util.Optional;
 import java.util.List;
 
 @Repository
 public interface UserSubscriptionRepository extends JpaRepository<UserSubscription, String> {
-    // Tìm gói cước đang có hiệu lực của user
-    @Query("SELECT us FROM UserSubscription us WHERE us.user.id = :userId AND us.status = 'Active' AND us.endDate > CURRENT_TIMESTAMP")
-    Optional<UserSubscription> findActiveSubscriptionByUserId(String userId);
+    // Tìm 1 gói đang Active gần hết hạn nhất (endDate xa nhất nhưng vẫn còn hiệu lực) cho 1 user
+    Optional<UserSubscription> findFirstByUser_IdAndStatusAndEndDateAfterOrderByEndDateDesc(
+            String userId,
+            SubscriptionStatus status,
+            LocalDateTime now
+    );
 
     // 1. Dùng cho Biểu đồ tròn: Đếm số lượng từng gói
     @Query("SELECT s.plan.planName, COUNT(s) FROM UserSubscription s GROUP BY s.plan.planName")
