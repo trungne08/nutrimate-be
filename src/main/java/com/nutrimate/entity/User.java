@@ -2,6 +2,8 @@ package com.nutrimate.entity;
 
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -43,16 +45,13 @@ public class User {
     @Column(name = "avatar_url", length = 255)
     private String avatarUrl; // Lấy từ Cognito attribute 'picture'
     
-    @Column(name = "created_at", insertable = false, updatable = false)
-    private LocalDateTime createdAt; // Database tự động set DEFAULT CURRENT_TIMESTAMP
-    
-    @Column(name = "updated_at", insertable = false)
-    private LocalDateTime updatedAt; // Database tự động set ON UPDATE CURRENT_TIMESTAMP
-    
-    @PreUpdate
-    protected void onUpdate() {
-        updatedAt = LocalDateTime.now();
-    }
+    @CreationTimestamp
+    @Column(name = "created_at", updatable = false)
+    private LocalDateTime createdAt;
+
+    @UpdateTimestamp
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
     
     public enum UserRole {
         MEMBER, EXPERT, ADMIN

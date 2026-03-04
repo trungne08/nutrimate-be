@@ -2,6 +2,7 @@ package com.nutrimate.entity;
 
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
+import org.hibernate.annotations.CreationTimestamp;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -37,6 +38,7 @@ public class PaymentOrderMapping {
     @Column(name = "amount")
     private Long amount; // Số tiền (VNĐ) đã thanh toán - lưu để tạo Payment record
 
-    @Column(name = "created_at", insertable = false, updatable = false)
+    @CreationTimestamp
+    @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 }
