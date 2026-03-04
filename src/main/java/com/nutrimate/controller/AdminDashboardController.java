@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import lombok.RequiredArgsConstructor;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/admin/dashboard")
@@ -52,5 +53,25 @@ public class AdminDashboardController {
             @RequestParam(defaultValue = "10") int size) { // Mặc định size 10 như bạn muốn
         
         return ResponseEntity.ok(dashboardService.getPaginatedFeedbacks(page, size));
+    }
+
+    @Operation(summary = "[Admin Chart 1] Biểu đồ tăng trưởng User (Tham số period: month, year)")
+    @GetMapping("/charts/users")
+    public ResponseEntity<List<com.nutrimate.dto.ChartDTO>> getUserGrowthChart(
+            @RequestParam(defaultValue = "month") String period) {
+        return ResponseEntity.ok(dashboardService.getUserGrowthChart(period));
+    }
+
+    @Operation(summary = "[Admin Chart 2] Biểu đồ tròn cơ cấu gói Subscription")
+    @GetMapping("/charts/subscriptions")
+    public ResponseEntity<List<com.nutrimate.dto.ChartDTO>> getSubscriptionPieChart() {
+        return ResponseEntity.ok(dashboardService.getSubscriptionPieChart());
+    }
+
+    @Operation(summary = "[Admin Chart 3] Biểu đồ Doanh thu gộp (Tham số period: week, month, year)")
+    @GetMapping("/charts/revenue")
+    public ResponseEntity<List<com.nutrimate.dto.ChartDTO>> getRevenueGrowthChart(
+            @RequestParam(defaultValue = "month") String period) {
+        return ResponseEntity.ok(dashboardService.getRevenueGrowthChart(period));
     }
 }
