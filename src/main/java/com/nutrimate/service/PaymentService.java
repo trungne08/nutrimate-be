@@ -53,7 +53,8 @@ public class PaymentService {
     }
 
     private String truncate(String s, int maxLen) {
-        if (s == null) return "";
+        if (s == null)
+            return "";
         return s.length() <= maxLen ? s : s.substring(0, maxLen);
     }
 
@@ -61,7 +62,8 @@ public class PaymentService {
     private static final int MAX_DESCRIPTION_LENGTH = 25;
 
     private boolean isFreePlan(SubscriptionPlan plan) {
-        if (plan == null || plan.getPrice() == null) return false;
+        if (plan == null || plan.getPrice() == null)
+            return false;
         return plan.getPrice().compareTo(BigDecimal.ZERO) == 0;
     }
 
@@ -146,7 +148,8 @@ public class PaymentService {
         Long orderCode = data.getOrderCode();
         log.info("PayOS webhook success, orderCode={}", orderCode);
 
-        if (orderCode == null) return;
+        if (orderCode == null)
+            return;
 
         // 1. Thử xử lý Booking trước
         var bookingOpt = bookingRepository.findByOrderCode(orderCode);
@@ -176,8 +179,7 @@ public class PaymentService {
                         .findFirstByUser_IdAndStatusAndEndDateAfterOrderByEndDateDesc(
                                 user.getId(),
                                 SubscriptionStatus.Active,
-                                now
-                        );
+                                now);
 
                 UserSubscription sub;
 
@@ -212,7 +214,7 @@ public class PaymentService {
                             : now;
                     sub.setEndDate(baseEnd.plusDays(extraDays));
                 }
-
+                sub.setOrderCode(orderCode);
                 UserSubscription savedSub = userSubscriptionRepository.save(sub);
 
                 Payment payment = new Payment();
@@ -227,7 +229,8 @@ public class PaymentService {
 
                 paymentOrderMappingRepository.delete(mapping);
 
-                log.info("Đã tạo UserSubscription {} cho user {} plan {} từ PayOS webhook orderCode={}", sub.getId(), user.getId(), plan.getPlanName(), orderCode);
+                log.info("Đã tạo UserSubscription {} cho user {} plan {} từ PayOS webhook orderCode={}", sub.getId(),
+                        user.getId(), plan.getPlanName(), orderCode);
             } catch (Exception e) {
                 log.error("Lỗi xử lý webhook Subscription orderCode={}", orderCode, e);
                 throw e;
