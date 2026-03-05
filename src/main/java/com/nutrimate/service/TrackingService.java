@@ -77,7 +77,8 @@ public class TrackingService {
         MealLog mealLog = mealLogRepository.findById(mealLogId)
                 .orElseThrow(() -> new ResourceNotFoundException("Food log entry not found"));
 
-        if (!mealLog.getDailyLog().getUser().getId().equals(userId)) {
+        if (mealLog.getDailyLog().getUser() == null
+                || !mealLog.getDailyLog().getUser().getId().equals(userId)) {
             throw new ForbiddenException("You are not authorized to edit this log");
         }
 
@@ -97,7 +98,8 @@ public class TrackingService {
         MealLog mealLog = mealLogRepository.findById(mealLogId)
                 .orElseThrow(() -> new ResourceNotFoundException("Food log entry not found"));
 
-        if (!mealLog.getDailyLog().getUser().getId().equals(userId)) {
+        if (mealLog.getDailyLog().getUser() == null
+                || !mealLog.getDailyLog().getUser().getId().equals(userId)) {
             throw new ForbiddenException("You are not authorized to delete this log");
         }
         

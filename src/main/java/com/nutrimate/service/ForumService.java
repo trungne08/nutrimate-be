@@ -206,7 +206,7 @@ public class ForumService {
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy bình luận"));
 
 
-        if (!comment.getUser().getId().equals(userId)) {
+        if (comment.getUser() == null || !comment.getUser().getId().equals(userId)) {
             throw new AccessDeniedException("Bạn không có quyền chỉnh sửa bình luận này");
         }
         if (request.getContent() != null) {
@@ -233,7 +233,7 @@ public class ForumService {
         Comment comment = commentRepository.findById(commentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Comment not found"));
 
-        if (!comment.getUser().getId().equals(userId)) {
+        if (comment.getUser() == null || !comment.getUser().getId().equals(userId)) {
             throw new ForbiddenException("You are not authorized to delete this comment");
         }
         
@@ -259,12 +259,24 @@ public class ForumService {
 
     // Mappers
     private ForumDTO.PostResponse mapToPostDTO(Post post, boolean isLiked) {
+        User author = post.getUser();
+        String authorName = (author != null && author.getFullName() != null)
+                ? author.getFullName()
+                : "Người dùng đã xóa";
+        String authorAvatar = (author != null && author.getAvatarUrl() != null)
+                ? author.getAvatarUrl()
+                : null;
+        String authorId = author != null ? author.getId() : null;
+        String authorRole = (author != null && author.getRole() != null)
+                ? author.getRole().name()
+                : "MEMBER";
+
         return ForumDTO.PostResponse.builder()
                 .postId(post.getId())
-                .authorName(post.getUser().getFullName())
-                .authorAvatar(post.getUser().getAvatarUrl())
-                .authorId(post.getUser().getId())
-                .authorRole(post.getUser().getRole() != null ? post.getUser().getRole().name() : "MEMBER")
+                .authorName(authorName)
+                .authorAvatar(authorAvatar)
+                .authorId(authorId)
+                .authorRole(authorRole)
                 .content(post.getContent())
                 .imageUrl(post.getImageUrl())
                 .createdAt(post.getCreatedAt())
@@ -275,12 +287,24 @@ public class ForumService {
     }
 
     private ForumDTO.CommentResponse mapToCommentDTO(Comment comment) {
+        User author = comment.getUser();
+        String authorName = (author != null && author.getFullName() != null)
+                ? author.getFullName()
+                : "Người dùng đã xóa";
+        String authorAvatar = (author != null && author.getAvatarUrl() != null)
+                ? author.getAvatarUrl()
+                : null;
+        String authorId = author != null ? author.getId() : null;
+        String authorRole = (author != null && author.getRole() != null)
+                ? author.getRole().name()
+                : "MEMBER";
+
         return ForumDTO.CommentResponse.builder()
                 .commentId(comment.getId())
-                .authorName(comment.getUser().getFullName())
-                .authorAvatar(comment.getUser().getAvatarUrl())
-                .authorId(comment.getUser().getId())
-                .authorRole(comment.getUser().getRole() != null ? comment.getUser().getRole().name() : "MEMBER")
+                .authorName(authorName)
+                .authorAvatar(authorAvatar)
+                .authorId(authorId)
+                .authorRole(authorRole)
                 .content(comment.getContent())
                 .imageUrl(comment.getImageUrl())
                 .createdAt(comment.getCreatedAt())

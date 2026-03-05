@@ -92,14 +92,23 @@ public class SystemFeedbackController {
 
         Map<String, Object> response = new HashMap<>();
         // Định hình lại data trả về cho Frontend dễ đọc
-        response.put("feedbacks", feedbackPage.getContent().stream().map(fb -> Map.of(
-                "id", fb.getId(),
-                "userName", fb.getUser().getFullName() != null ? fb.getUser().getFullName() : "Người dùng ẩn danh",
-                "userAvatar", fb.getUser().getAvatarUrl() != null ? fb.getUser().getAvatarUrl() : "",
-                "rating", fb.getRating(),
-                "content", fb.getContent() != null ? fb.getContent() : "",
-                "createdAt", fb.getCreatedAt()
-        )));
+        response.put("feedbacks", feedbackPage.getContent().stream().map(fb -> {
+            var user = fb.getUser();
+            String userName = (user != null && user.getFullName() != null)
+                    ? user.getFullName()
+                    : "Người dùng đã xóa";
+            String userAvatar = (user != null && user.getAvatarUrl() != null)
+                    ? user.getAvatarUrl()
+                    : null;
+            return Map.of(
+                    "id", fb.getId(),
+                    "userName", userName,
+                    "userAvatar", userAvatar,
+                    "rating", fb.getRating(),
+                    "content", fb.getContent() != null ? fb.getContent() : "",
+                    "createdAt", fb.getCreatedAt()
+            );
+        }));
         response.put("currentPage", feedbackPage.getNumber());
         response.put("totalItems", feedbackPage.getTotalElements());
         response.put("totalPages", feedbackPage.getTotalPages());
