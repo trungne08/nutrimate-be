@@ -3,6 +3,8 @@ package com.nutrimate.entity;
 import jakarta.persistence.*;
 import lombok.Data;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.NotFound;
+import org.hibernate.annotations.NotFoundAction;
 import java.time.LocalDateTime;
 
 @Entity
@@ -22,6 +24,7 @@ public class Feedback {
     // Ai là người đánh giá (Khách hàng)
     @ManyToOne
     @JoinColumn(name = "member_id")
+    @NotFound(action = NotFoundAction.IGNORE)
     private User member;
 
     // Chuyên gia bị đánh giá

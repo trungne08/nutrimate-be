@@ -3,6 +3,8 @@ package com.nutrimate.entity;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.NotFound;
+import org.hibernate.annotations.NotFoundAction;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -25,6 +27,7 @@ public class Booking {
 
     @ManyToOne
     @JoinColumn(name = "member_id", nullable = false) // Tên cột trong Database
+    @NotFound(action = NotFoundAction.IGNORE)
     private User member;
 
     @ManyToOne 
