@@ -31,4 +31,7 @@ public interface UserSubscriptionRepository extends JpaRepository<UserSubscripti
 
     @Query(value = "SELECT DATE_FORMAT(s.start_date, '%x-W%v') as label, SUM(p.price) FROM User_Subscriptions s JOIN `Subscription_Plans` p ON s.plan_id = p.plan_id WHERE s.status = 'ACTIVE' GROUP BY label ORDER BY label", nativeQuery = true)
     List<Object[]> getRevenueByWeek();
+
+    @Query("SELECT SUM(s.plan.price) FROM UserSubscription s WHERE s.status = 'Active'")
+    java.math.BigDecimal calculateTotalRevenue();
 }
