@@ -29,6 +29,9 @@ public class UserSubscription {
     @JoinColumn(name = "user_id", nullable = false)
     @NotFound(action = NotFoundAction.IGNORE)
     private User user;
+    
+    @Column(name = "order_code", unique = true)
+    private Long orderCode;
 
     @ManyToOne
     @JoinColumn(name = "plan_id", nullable = false)

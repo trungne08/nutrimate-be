@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import lombok.RequiredArgsConstructor;
+import java.util.Map;
 import java.util.List;
 
 @RestController
@@ -38,12 +39,14 @@ public class AdminDashboardController {
     }
 
     // 3. API Danh sách Giao dịch (Phân trang - Mặc định size 20)
-    @Operation(summary = "[Admin] Lấy danh sách Giao dịch có phân trang")
+    @Operation(summary = "[Admin] Lịch sử giao dịch (Gộp chung Booking và Subscription)")
     @GetMapping("/transactions")
-    public ResponseEntity<Page<Booking>> getTransactions(
+    // @PreAuthorize("hasRole('ADMIN')") // Mở comment này ra nếu bác đang dùng Spring Security chặn quyền
+    public ResponseEntity<Map<String, Object>> getTransactionHistory(
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
-        return ResponseEntity.ok(dashboardService.getPaginatedTransactions(page, size));
+            @RequestParam(defaultValue = "10") int size) {
+        
+        return ResponseEntity.ok(dashboardService.getTransactionHistory(page, size));
     }
 
     @Operation(summary = "[Admin] Lấy danh sách Feedback có phân trang")
