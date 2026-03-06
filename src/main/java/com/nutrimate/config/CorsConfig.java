@@ -55,9 +55,10 @@ public class CorsConfig {
             }
         }
         
-        // Tạm dùng "*" cho test local (bao gồm Live Server 5500). Production nên chuyển lại setAllowedOrigins(origins)
-        configuration.setAllowedOriginPatterns(List.of("*"));
-        configuration.setAllowCredentials(true); // allowCredentials works with originPatterns("*") in Spring 5.3+
+        // Whitelist origins (an toàn cho production, tương thích allowCredentials=true)
+        // Lưu ý: Khi allowCredentials=true thì không được dùng "*" cho allowedOrigins.
+        configuration.setAllowedOrigins(origins);
+        configuration.setAllowCredentials(true);
         
         // Cho phép tất cả methods (QUAN TRỌNG: phải có OPTIONS cho preflight)
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH", "HEAD"));
