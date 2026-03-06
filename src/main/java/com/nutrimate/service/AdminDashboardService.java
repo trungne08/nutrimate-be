@@ -30,13 +30,28 @@ public class AdminDashboardService {
     private final UserSubscriptionRepository userSubscriptionRepository;
 
     public DashboardResponseDTO getDashboardStats() {
-        BigDecimal totalRevenue = bookingRepository.calculateTotalRevenue();
+        // 1. Tính tổng doanh thu từ 2 nguồn
+        BigDecimal bookingRevenue = bookingRepository.calculateTotalRevenue();
+        BigDecimal subRevenue = userSubscriptionRepository.calculateTotalRevenue();
+        
+        BigDecimal totalRevenue = BigDecimal.ZERO;
+        if (bookingRevenue != null) {
+            totalRevenue = totalRevenue.add(bookingRevenue);
+        }
+        if (subRevenue != null) {
+            totalRevenue = totalRevenue.add(subRevenue);
+        }
+        
+        // 2. Tính tổng số lượng giao dịch (Bao gồm cả đặt lịch + mua gói)
+        // Lưu ý: Nếu muốn đếm chính xác số giao dịch thành công, bác có thể viết thêm hàm count theo status.
+        // Ở đây tạm thời đếm tổng số record có trong bảng.
+        long totalTransactions = bookingRepository.count() + userSubscriptionRepository.count();
         
         return DashboardResponseDTO.builder()
                 .totalUsers(userRepository.count())
-                .totalTransactions(bookingRepository.count())
-                .totalFeedbacks(feedbackRepository.count()) // 👇 Đã dùng số liệu THẬT
-                .totalRevenue(totalRevenue != null ? totalRevenue : BigDecimal.ZERO)
+                .totalTransactions(totalTransactions) // Đã cộng gộp 2 bảng
+                .totalFeedbacks(feedbackRepository.count()) 
+                .totalRevenue(totalRevenue) // Đã cộng gộp 2 luồng tiền
                 .build();
     }
     
