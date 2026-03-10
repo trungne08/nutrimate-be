@@ -1,7 +1,9 @@
 package com.nutrimate.controller;
 
 import com.nutrimate.dto.AiChatMessageDTO;
+import com.nutrimate.dto.AiChatQuotaDTO;
 import com.nutrimate.dto.AiChatSendRequestDTO;
+import com.nutrimate.dto.AiChatSendResponseDTO;
 import com.nutrimate.entity.User;
 import com.nutrimate.exception.BadRequestException;
 import com.nutrimate.exception.ResourceNotFoundException;
@@ -20,7 +22,6 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.Map;
 
 @RestController
 @RequestMapping("/api/ai-chat")
@@ -62,13 +63,20 @@ public class AiChatController {
         return ResponseEntity.ok(history);
     }
 
-    @Operation(summary = "Gửi tin nhắn và nhận phản hồi từ AI (yêu cầu gói Premium)")
+    @Operation(summary = "Lấy quota AI chat (daily_limit, used_today, remaining_chats)")
+    @GetMapping("/quota")
+    public ResponseEntity<AiChatQuotaDTO> getQuota(@Parameter(hidden = true) Authentication authentication) {
+        String userId = getCurrentUserId(authentication);
+        return ResponseEntity.ok(aiChatService.getQuota(userId));
+    }
+
+    @Operation(summary = "Gửi tin nhắn và nhận phản hồi từ AI (giới hạn theo gói: Free 5/ngày, Basic 10/ngày, Premium không giới hạn)")
     @PostMapping("/send")
-    public ResponseEntity<Map<String, String>> sendMessage(
+    public ResponseEntity<AiChatSendResponseDTO> sendMessage(
             @Valid @RequestBody AiChatSendRequestDTO request,
             @Parameter(hidden = true) Authentication authentication) {
         String userId = getCurrentUserId(authentication);
-        String response = aiChatService.sendMessage(userId, request.getMessage());
-        return ResponseEntity.ok(Map.of("response", response));
+        AiChatSendResponseDTO result = aiChatService.sendMessage(userId, request.getMessage());
+        return ResponseEntity.ok(result);
     }
 }
