@@ -30,6 +30,10 @@ public class AiCoachService {
     private final RestTemplate restTemplate;
 
     public String getAdviceFromAi(String userId, String userMessage) {
+        return getAdviceFromAiWithContext(userId, userMessage, null);
+    }
+
+    public String getAdviceFromAiWithContext(String userId, String userMessage, java.util.List<AiCoachRequestDTO.ChatMessageDTO> chatHistory) {
         HealthProfile profile = healthProfileRepository.findByUserId(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Health profile not found. Please complete your profile first."));
 
@@ -55,6 +59,7 @@ public class AiCoachService {
                 .userMessage(userMessage)
                 .healthProfile(healthProfileDto)
                 .availableRecipes(availableRecipes)
+                .chatHistory(chatHistory != null ? chatHistory : java.util.Collections.emptyList())
                 .build();
 
         HttpHeaders headers = new HttpHeaders();

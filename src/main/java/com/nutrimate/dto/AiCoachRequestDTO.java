@@ -26,6 +26,18 @@ public class AiCoachRequestDTO {
     @JsonProperty("available_recipes")
     private List<AvailableRecipeDTO> availableRecipes;
 
+    @JsonProperty("chat_history")
+    private List<ChatMessageDTO> chatHistory;
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class ChatMessageDTO {
+        private String role;
+        private String content;
+    }
+
     @Data
     @Builder
     @NoArgsConstructor
