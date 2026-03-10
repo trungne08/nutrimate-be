@@ -37,6 +37,9 @@ public class UserChallenge {
     @Column(name = "days_completed", nullable = false)
     private Integer daysCompleted = 0; // Tiến độ (VD: Đã hoàn thành 3/7 ngày)
 
+    @Column(name = "last_check_in_date")
+    private LocalDate lastCheckInDate;
+
     @Enumerated(EnumType.STRING)
     private ChallengeStatus status;
 

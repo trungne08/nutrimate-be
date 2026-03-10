@@ -13,6 +13,8 @@ public interface UserChallengeRepository extends JpaRepository<UserChallenge, St
     // Lấy danh sách thử thách user đang tham gia
     List<UserChallenge> findByUserId(String userId);
 
+    List<UserChallenge> findByStatus(ChallengeStatus status);
+
     Optional<UserChallenge> findByUserIdAndChallengeId(String userId, String challengeId);
     
     Optional<UserChallenge> findByUserIdAndChallengeIdAndStatus(

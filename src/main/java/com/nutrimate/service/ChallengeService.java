@@ -134,6 +134,7 @@ public class ChallengeService {
         if (uc.getDaysCompleted() < totalDays) {
             uc.setDaysCompleted(uc.getDaysCompleted() + 1);
         }
+        uc.setLastCheckInDate(LocalDate.now());
 
         if (uc.getDaysCompleted() >= totalDays) {
             uc.setStatus(UserChallenge.ChallengeStatus.COMPLETED);

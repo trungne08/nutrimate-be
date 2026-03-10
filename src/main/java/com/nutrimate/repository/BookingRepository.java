@@ -41,6 +41,12 @@ public interface BookingRepository extends JpaRepository<Booking, String> {
 
         List<Booking> findByStatusAndCreatedAtBefore(BookingStatus status, LocalDateTime createdAtBefore);
 
+        @Query("SELECT b FROM Booking b WHERE b.bookingTime BETWEEN :start AND :end " +
+                "AND (b.isReminded IS NULL OR b.isReminded = false) " +
+                "AND b.status IN ('PENDING', 'CONFIRMED')")
+        List<Booking> findUpcomingToRemind(@Param("start") LocalDateTime start,
+                                          @Param("end") LocalDateTime end);
+
         @Query("SELECT COUNT(b) FROM Booking b " +
                         "WHERE b.member.id = :memberId " +
                         "AND b.isFreeSession = true " +

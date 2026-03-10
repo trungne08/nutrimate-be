@@ -68,7 +68,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/api/plans/**").permitAll()
                 .requestMatchers("/api/auth/me", "/api/auth/logout", "/api/auth/token", 
                                 "/api/auth/profile", "/api/auth/profile/status", 
-                                "/api/health/**", "/api/ai-chat/**").authenticated()
+                                "/api/health/**", "/api/ai-chat/**", "/api/notifications/**").authenticated()
                                 
                 // 5. Tất cả các request còn lại phải xác thực
                 .anyRequest().authenticated()

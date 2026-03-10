@@ -3,11 +3,13 @@ package com.nutrimate.controller;
 import com.nutrimate.dto.RecentChatResponse;
 import com.nutrimate.entity.ChatMessage;
 import com.nutrimate.entity.ChatType;
+import com.nutrimate.entity.Notification.NotificationType;
 import com.nutrimate.entity.User;
 import com.nutrimate.exception.BadRequestException;
 import com.nutrimate.exception.ResourceNotFoundException;
 import com.nutrimate.repository.ChatMessageRepository;
 import com.nutrimate.repository.UserRepository;
+import com.nutrimate.service.NotificationService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -37,6 +39,9 @@ public class ChatController {
     private final SimpMessagingTemplate messagingTemplate;
     private final ChatMessageRepository chatMessageRepository;
     private final UserRepository userRepository;
+    private final NotificationService notificationService;
+
+    private static final int NOTIFICATION_PREVIEW_LENGTH = 50;
 
     // Helper: Lấy User ID từ sub (cognito_id) - Access Token Cognito mặc định không chứa email
     private String getCurrentUserId(Authentication authentication) {
@@ -75,6 +80,25 @@ public class ChatController {
                 ? "/queue/expert/" + saved.getReceiverId()
                 : "/queue/support/" + saved.getReceiverId();
         messagingTemplate.convertAndSend(destination, saved);
+
+        // Bắn thông báo In-App cho người nhận
+        String senderName = userRepository.findById(saved.getSenderId())
+                .map(u -> u.getFullName() != null && !u.getFullName().isBlank() ? u.getFullName() : "Người dùng")
+                .orElse("Người dùng");
+        String preview = saved.getContent() != null
+                ? (saved.getContent().length() > NOTIFICATION_PREVIEW_LENGTH
+                        ? saved.getContent().substring(0, NOTIFICATION_PREVIEW_LENGTH) + "..."
+                        : saved.getContent())
+                : "";
+        java.util.Map<String, Object> extras = new java.util.HashMap<>();
+        extras.put("senderId", saved.getSenderId());
+        extras.put("chatMessageId", saved.getId());
+        notificationService.createAndPush(
+                saved.getReceiverId(),
+                "Tin nhắn mới từ " + senderName,
+                preview,
+                NotificationType.CHAT_MESSAGE,
+                extras);
     }
 
     @Operation(summary = "Lấy lịch sử tin nhắn giữa 2 user theo chatType")

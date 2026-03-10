@@ -60,6 +60,9 @@ public class Booking {
     @Column(name = "order_code")
     private Long orderCode;
 
+    @Column(name = "is_reminded")
+    private Boolean isReminded = false;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
