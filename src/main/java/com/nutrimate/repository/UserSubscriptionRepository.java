@@ -34,4 +34,7 @@ public interface UserSubscriptionRepository extends JpaRepository<UserSubscripti
 
     @Query("SELECT SUM(s.plan.price) FROM UserSubscription s WHERE s.status = 'Active'")
     java.math.BigDecimal calculateTotalRevenue();
+
+    @Query("SELECT COUNT(s) FROM UserSubscription s WHERE s.status = 'Active' AND s.plan.id != '11111111-1111-1111-1111-111111111111'")
+    long countPaidActiveSubscriptions();
 }
