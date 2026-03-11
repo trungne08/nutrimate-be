@@ -196,6 +196,8 @@ public class ForumService {
 
         // 4. Lưu và trả về
         Comment savedComment = commentRepository.save(comment);
+        post.setCommentCount(post.getCommentCount() + 1);
+        postRepository.save(post);
         return mapToCommentDTO(savedComment);
     }
 
