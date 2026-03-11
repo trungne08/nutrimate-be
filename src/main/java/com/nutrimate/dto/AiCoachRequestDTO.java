@@ -29,6 +29,9 @@ public class AiCoachRequestDTO {
     @JsonProperty("chat_history")
     private List<ChatMessageDTO> chatHistory;
 
+    @JsonProperty("system_context")
+    private String systemContext;
+
     @Data
     @Builder
     @NoArgsConstructor

@@ -25,6 +25,10 @@ public interface RecipeRepository extends JpaRepository<Recipe, String> {
             @Param("maxCal") Integer maxCal,
             Pageable pageable);
 
+    @Query("SELECT r FROM Recipe r WHERE LOWER(r.title) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
+            "LOWER(r.description) LIKE LOWER(CONCAT('%', :keyword, '%'))")
+    List<Recipe> findByKeywordInTitleOrDescription(@Param("keyword") String keyword, Pageable pageable);
+
     // Lọc công thức Premium
     Page<Recipe> findByIsPremium(Boolean isPremium, Pageable pageable);
 }
