@@ -67,4 +67,7 @@ public interface BookingRepository extends JpaRepository<Booking, String> {
 
         @Query(value = "SELECT DATE_FORMAT(booking_time, '%x-W%v') as label, SUM(final_price) FROM Bookings WHERE status IN ('CONFIRMED', 'COMPLETED') GROUP BY label ORDER BY label", nativeQuery = true)
         List<Object[]> getRevenueByWeek();
+
+        @Query("SELECT COUNT(b) FROM Booking b WHERE b.status IN ('CONFIRMED', 'COMPLETED')")
+        long countSuccessfulBookings();
 }
