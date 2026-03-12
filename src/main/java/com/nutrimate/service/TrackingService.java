@@ -144,6 +144,8 @@ public class TrackingService {
                     md.setMealType(m.getMealType());
                     md.setAmount(m.getAmount());
                     md.setCalories(m.getCaloriesConsumed());
+                    // Ưu tiên ảnh user upload (MealLog), fallback: ảnh Recipe
+                    md.setImage(m.getRecipe() != null ? m.getRecipe().getImageUrl() : null);
                     return md;
                 }).collect(Collectors.toList()));
         
