@@ -31,7 +31,8 @@ public class VideoCallController {
             @Parameter(description = "Room ID (optional, empty for basic auth)")
             @RequestParam(required = false, defaultValue = "") String roomId) {
 
-        if (appId == 0 || serverSecret == null || serverSecret.isEmpty()) {
+        String secret = serverSecret == null ? null : serverSecret.trim();
+        if (appId == 0 || secret == null || secret.isEmpty()) {
             return ResponseEntity.internalServerError()
                     .body(Map.of("error", "ZEGO_APP_ID hoặc ZEGO_SERVER_SECRET chưa được cấu hình"));
         }
@@ -42,7 +43,7 @@ public class VideoCallController {
             TokenServerAssistant.TokenInfo tokenInfo = TokenServerAssistant.generateToken04(
                     appId,
                     userId,
-                    serverSecret,
+                    secret,
                     3600,
                     payload
             );

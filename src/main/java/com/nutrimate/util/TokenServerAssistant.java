@@ -70,6 +70,12 @@ public final class TokenServerAssistant {
                                             int effectiveTimeInSeconds, String payload) {
         TokenInfo token = new TokenInfo();
 
+        // Zego UI Kit yêu cầu payload phải là chuỗi rỗng (""), không nhét roomId hay dữ liệu khác.
+        payload = "";
+
+        // Secret từ env dễ dính whitespace/newline -> trim để tránh sai key khi encrypt/verify.
+        secret = (secret == null) ? null : secret.trim();
+
         if (appId == 0) {
             token.error.code = ErrorCode.ILLEGAL_APP_ID;
             token.error.message = "illegal appId";
@@ -104,7 +110,7 @@ public final class TokenServerAssistant {
         json.put("ctime", nowTime);
         json.put("expire", expireTime);
         json.put("nonce", nonce);
-        json.put("payload", payload != null ? payload : "");
+        json.put("payload", payload);
 
         try {
             String content = OBJECT_MAPPER.writeValueAsString(json);
