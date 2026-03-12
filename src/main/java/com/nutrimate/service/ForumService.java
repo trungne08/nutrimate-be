@@ -31,6 +31,15 @@ public class ForumService {
     private final UserRepository userRepository;
     private final FileUploadService fileUploadService;
 
+    private static final long MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5MB
+    private static final long MAX_VIDEO_SIZE = 20 * 1024 * 1024; // 20MB
+    
+    private void validateFileSize(MultipartFile file, long maxSize, String type) {
+        if (file != null && !file.isEmpty() && file.getSize() > maxSize) {
+            throw new BadRequestException("Dung lượng " + type + " vượt quá giới hạn cho phép!");
+        }
+    }
+
     // 10.1 Get Newsfeed
     public Page<ForumDTO.PostResponse> getNewsFeed(String currentUserId, Pageable pageable) {
         Page<Post> posts = postRepository.findAllByOrderByCreatedAtDesc(pageable);
@@ -59,31 +68,27 @@ public class ForumService {
                 .build();
     }
 
-    // 10.3 Create Post
     @Transactional
     public ForumDTO.PostResponse createPost(String userId, String content, MultipartFile imageFile, MultipartFile videoFile) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
         
+        validateFileSize(imageFile, MAX_IMAGE_SIZE, "ảnh");
+        validateFileSize(videoFile, MAX_VIDEO_SIZE, "video");
+
         Post post = new Post();
         post.setUser(user);
         post.setContent(content);
         
-        if (imageFile != null && !imageFile.isEmpty()) {
-            try {
+        try {
+            if (imageFile != null && !imageFile.isEmpty()) {
                 post.setImageUrl(fileUploadService.uploadFile(imageFile));
-            } catch (IOException e) {
-                throw new BadRequestException("Image upload failed: " + e.getMessage());
             }
-        }
-
-        // 2. Xử lý Video
-        if (videoFile != null && !videoFile.isEmpty()) {
-            try {
+            if (videoFile != null && !videoFile.isEmpty()) {
                 post.setVideoUrl(fileUploadService.uploadFile(videoFile));
-            } catch (IOException e) {
-                throw new BadRequestException("Video upload failed: " + e.getMessage());
             }
+        } catch (IOException e) {
+            throw new BadRequestException("Lỗi upload media: " + e.getMessage());
         }
         
         post.setLikeCount(0);
@@ -102,27 +107,23 @@ public class ForumService {
             throw new ForbiddenException("You are not authorized to edit this post");
         }
 
+        validateFileSize(imageFile, MAX_IMAGE_SIZE, "ảnh");
+        validateFileSize(videoFile, MAX_VIDEO_SIZE, "video");
+
         post.setContent(content);
         
-        if (imageFile != null && !imageFile.isEmpty()) {
-            try {
+        try {
+            if (imageFile != null && !imageFile.isEmpty()) {
                 post.setImageUrl(fileUploadService.uploadFile(imageFile));
-            } catch (IOException e) {
-                throw new BadRequestException("Image upload failed: " + e.getMessage());
             }
-        }
-
-        // 2. Xử lý Video
-        if (videoFile != null && !videoFile.isEmpty()) {
-            try {
+            if (videoFile != null && !videoFile.isEmpty()) {
                 post.setVideoUrl(fileUploadService.uploadFile(videoFile));
-            } catch (IOException e) {
-                throw new BadRequestException("Video upload failed: " + e.getMessage());
             }
+        } catch (IOException e) {
+            throw new BadRequestException("Lỗi upload media: " + e.getMessage());
         }
 
         post.setUpdatedAt(LocalDateTime.now());
-        
         return mapToPostDTO(postRepository.save(post), likeRepository.existsByUserIdAndPostId(userId, postId));
     }
 
@@ -186,39 +187,30 @@ public class ForumService {
     // 10.7 Add Comment
     @Transactional
     public ForumDTO.CommentResponse createComment(String userId, String postId, ForumDTO.CommentRequest request) {
-        // 1. Tìm User và Post
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
-        
         Post post = postRepository.findById(postId)
                 .orElseThrow(() -> new ResourceNotFoundException("Post not found"));
 
-        // 2. Tạo Entity Comment
+        validateFileSize(request.getImageFile(), MAX_IMAGE_SIZE, "ảnh");
+        validateFileSize(request.getVideoFile(), MAX_VIDEO_SIZE, "video");
+
         Comment comment = new Comment();
         comment.setUser(user);
         comment.setPost(post);
         comment.setContent(request.getContent());
-        comment.setCreatedAt(LocalDateTime.now()); // Nếu entity không tự gen
 
-        // 3. XỬ LÝ ẢNH (Nếu có upload)
-        if (request.getImageFile() != null && !request.getImageFile().isEmpty()) {
-            try {
+        try {
+            if (request.getImageFile() != null && !request.getImageFile().isEmpty()) {
                 comment.setImageUrl(fileUploadService.uploadFile(request.getImageFile()));
-            } catch (Exception e) {
-                throw new RuntimeException("Lỗi upload ảnh comment: " + e.getMessage());
             }
-        }
-
-        // 2. XỬ LÝ VIDEO
-        if (request.getVideoFile() != null && !request.getVideoFile().isEmpty()) {
-            try {
+            if (request.getVideoFile() != null && !request.getVideoFile().isEmpty()) {
                 comment.setVideoUrl(fileUploadService.uploadFile(request.getVideoFile()));
-            } catch (Exception e) {
-                throw new RuntimeException("Lỗi upload video comment: " + e.getMessage());
             }
+        } catch (Exception e) {
+            throw new RuntimeException("Lỗi upload media comment: " + e.getMessage());
         }
 
-        // 4. Lưu và trả về
         Comment savedComment = commentRepository.save(comment);
         post.setCommentCount(post.getCommentCount() + 1);
         postRepository.save(post);
@@ -231,31 +223,33 @@ public class ForumService {
         Comment comment = commentRepository.findById(commentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy bình luận"));
 
-
         if (comment.getUser() == null || !comment.getUser().getId().equals(userId)) {
             throw new AccessDeniedException("Bạn không có quyền chỉnh sửa bình luận này");
         }
+
+        // 1. Kiểm tra dung lượng file
+        validateFileSize(request.getImageFile(), MAX_IMAGE_SIZE, "ảnh");
+        validateFileSize(request.getVideoFile(), MAX_VIDEO_SIZE, "video");
+
         if (request.getContent() != null) {
             comment.setContent(request.getContent());
         }
-       if (request.getImageFile() != null && !request.getImageFile().isEmpty()) {
-            try {
+
+        try {
+            // 2. Cập nhật Ảnh (nếu có gửi file mới)
+            if (request.getImageFile() != null && !request.getImageFile().isEmpty()) {
                 comment.setImageUrl(fileUploadService.uploadFile(request.getImageFile()));
-            } catch (Exception e) {
-                throw new RuntimeException("Lỗi upload ảnh comment: " + e.getMessage());
             }
-        }
 
-        // 2. XỬ LÝ VIDEO
-        if (request.getVideoFile() != null && !request.getVideoFile().isEmpty()) {
-            try {
+            // 3. Cập nhật Video (nếu có gửi file mới)
+            if (request.getVideoFile() != null && !request.getVideoFile().isEmpty()) {
                 comment.setVideoUrl(fileUploadService.uploadFile(request.getVideoFile()));
-            } catch (Exception e) {
-                throw new RuntimeException("Lỗi upload video comment: " + e.getMessage());
             }
+        } catch (Exception e) {
+            throw new RuntimeException("Lỗi cập nhật media comment: " + e.getMessage());
         }
 
-        // 5. Lưu và trả về
+        // 4. Lưu và trả về DTO (đã bao gồm videoUrl trong mapper)
         Comment savedComment = commentRepository.save(comment);
         return mapToCommentDTO(savedComment);
     }
