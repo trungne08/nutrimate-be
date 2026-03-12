@@ -17,12 +17,11 @@ public class FileUploadService {
     private final Cloudinary cloudinary;
 
     public String uploadFile(MultipartFile file) throws IOException {
-        // Upload file lên Cloudinary
-        // "public_id" để đặt tên file ngẫu nhiên tránh trùng lặp
+        // Thêm option "resource_type", "auto" cực kỳ quan trọng ở đây
         Map uploadResult = cloudinary.uploader().upload(file.getBytes(),
-                ObjectUtils.asMap("public_id", UUID.randomUUID().toString()));
-
-        // Trả về đường dẫn ảnh (secure_url là link https)
-        return uploadResult.get("secure_url").toString();
+                com.cloudinary.utils.ObjectUtils.asMap(
+                        "resource_type", "auto" // 👈 Ép Cloudinary tự nhận diện Video để tăng giới hạn lên 100MB
+                ));
+        return uploadResult.get("url").toString();
     }
 }
