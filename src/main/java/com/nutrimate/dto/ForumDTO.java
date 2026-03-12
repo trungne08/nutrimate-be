@@ -13,14 +13,16 @@ public class ForumDTO {
     @Data
     public static class PostRequest {
         private String content;
-        private String imageUrl;
+        private MultipartFile imageFile; // 👈 Hứng file ảnh
+        private MultipartFile videoFile;
     }
 
     // Request tạo comment
     @Data
     public static class CommentRequest {
         private String content;
-        private MultipartFile file;
+        private MultipartFile imageFile; // 👈 Hứng file ảnh
+        private MultipartFile videoFile;
     }
 
     // Response bài viết (Newsfeed)
@@ -34,6 +36,7 @@ public class ForumDTO {
         private String authorRole;
         private String content;
         private String imageUrl;
+        private String videoUrl;
         private LocalDateTime createdAt;
         private Integer likeCount;
         private Integer commentCount;
@@ -59,6 +62,7 @@ public class ForumDTO {
         private String authorRole;
         private String content;
         private String imageUrl;
+        private String videoUrl;
         private LocalDateTime createdAt;
     }
 
@@ -66,6 +70,7 @@ public class ForumDTO {
     @Builder
     public static class UpdateCommentRequest {
         private String content;
-        private MultipartFile file;
+        private MultipartFile imageFile; // 👈 Hứng file ảnh
+        private MultipartFile videoFile;
     }
 }

@@ -27,6 +27,9 @@ public class Comment {
     @JoinColumn(name = "post_id", nullable = false)
     private Post post;
 
+    @Column(name = "video_url")
+    private String videoUrl;
+    
     @ManyToOne
     @JoinColumn(name = "user_id", nullable = false)
     @NotFound(action = NotFoundAction.IGNORE)

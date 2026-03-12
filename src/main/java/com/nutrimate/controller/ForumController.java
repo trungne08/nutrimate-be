@@ -20,7 +20,6 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.core.oidc.user.OidcUser;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/api/forum")
@@ -91,29 +90,38 @@ public class ForumController {
         return ResponseEntity.ok(forumService.getPostDetail(userId, id));
     }
 
-    // 10.3 Create Post
-    @Operation(summary = "Create new post (Text + Image)")
+    // 10.3 Create Post (Đã nâng cấp: Nhận cả Ảnh + Video)
+    @Operation(summary = "Create new post (Text + Image + Video)")
     @PostMapping(value = "/posts", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("hasAnyRole('MEMBER', 'EXPERT', 'ADMIN')")
     public ResponseEntity<ForumDTO.PostResponse> createPost(
-            @RequestParam("content") String content,
-            @RequestParam(value = "file", required = false) MultipartFile file,
+            @ModelAttribute ForumDTO.PostRequest request, // 👇 Dùng ModelAttribute để hứng DTO
             @Parameter(hidden = true) Authentication authentication) {
         
-        return ResponseEntity.ok(forumService.createPost(getCurrentUserId(authentication), content, file));
+        return ResponseEntity.ok(forumService.createPost(
+                getCurrentUserId(authentication), 
+                request.getContent(), 
+                request.getImageFile(), // Tách rõ Image
+                request.getVideoFile()  // Tách rõ Video
+        ));
     }
 
-    // 10.4 Update Post
-    @Operation(summary = "Update post (Text + Image)")
+    // 10.4 Update Post (Đã nâng cấp: Nhận cả Ảnh + Video)
+    @Operation(summary = "Update post (Text + Image + Video)")
     @PutMapping(value = "/posts/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("hasAnyRole('MEMBER', 'EXPERT', 'ADMIN')")
     public ResponseEntity<ForumDTO.PostResponse> updatePost(
             @PathVariable String id,
-            @RequestParam("content") String content,
-            @RequestParam(value = "file", required = false) MultipartFile file,
+            @ModelAttribute ForumDTO.PostRequest request, // 👇 Dùng ModelAttribute để hứng DTO
             @Parameter(hidden = true) Authentication authentication) {
         
-        return ResponseEntity.ok(forumService.updatePost(getCurrentUserId(authentication), id, content, file));
+        return ResponseEntity.ok(forumService.updatePost(
+                getCurrentUserId(authentication), 
+                id, 
+                request.getContent(), 
+                request.getImageFile(), // Tách rõ Image
+                request.getVideoFile()  // Tách rõ Video
+        ));
     }
 
     // 10.5 Delete Post
@@ -140,14 +148,13 @@ public class ForumController {
         return ResponseEntity.ok("Success");
     }
 
-    // 10.7 Add Comment
-    @Operation(summary = "Create a comment (Text + Image)")
-    // 👇 Thêm postId vào URL cho rõ ràng bài viết nào
+    // 10.7 Add Comment (Đã chuẩn sẵn)
+    @Operation(summary = "Create a comment (Text + Image + Video)")
     @PostMapping(value = "/posts/{postId}/comments", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("hasAnyRole('MEMBER', 'EXPERT', 'ADMIN')")
     public ResponseEntity<ForumDTO.CommentResponse> createComment(
             @PathVariable String postId,
-            @ModelAttribute ForumDTO.CommentRequest request, // Dùng ModelAttribute để nhận file
+            @ModelAttribute ForumDTO.CommentRequest request, 
             @Parameter(hidden = true) Authentication authentication) {
         
         return ResponseEntity.ok(forumService.createComment(
@@ -157,22 +164,23 @@ public class ForumController {
         ));
     }
 
-    @Operation(summary = "Update a comment (Text + Image)")
-    // 👇 Thêm consumes multipart để nhận file
+    // 10.8 Update Comment (Đã chuẩn sẵn)
+    @Operation(summary = "Update a comment (Text + Image + Video)")
     @PutMapping(value = "/comments/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("hasAnyRole('MEMBER', 'EXPERT', 'ADMIN')")
     public ResponseEntity<ForumDTO.CommentResponse> updateComment(
             @PathVariable String id,
-            @ModelAttribute ForumDTO.UpdateCommentRequest request, // 👇 Đổi @RequestBody thành @ModelAttribute
+            @ModelAttribute ForumDTO.UpdateCommentRequest request, 
             @Parameter(hidden = true) Authentication authentication) {
         
         return ResponseEntity.ok(forumService.updateComment(
                 getCurrentUserId(authentication), 
                 id, 
-                request // Truyền cả object request vào service
+                request 
         ));
     }
-    // 10.8 Delete Comment
+
+    // 10.9 Delete Comment
     @Operation(summary = "Delete comment (Owner only)")
     @DeleteMapping("/comments/{id}")
     @PreAuthorize("hasAnyRole('MEMBER', 'EXPERT', 'ADMIN')")

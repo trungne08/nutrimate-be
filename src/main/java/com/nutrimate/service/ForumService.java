@@ -61,7 +61,7 @@ public class ForumService {
 
     // 10.3 Create Post
     @Transactional
-    public ForumDTO.PostResponse createPost(String userId, String content, MultipartFile file) {
+    public ForumDTO.PostResponse createPost(String userId, String content, MultipartFile imageFile, MultipartFile videoFile) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
         
@@ -69,12 +69,20 @@ public class ForumService {
         post.setUser(user);
         post.setContent(content);
         
-        if (file != null && !file.isEmpty()) {
+        if (imageFile != null && !imageFile.isEmpty()) {
             try {
-                String url = fileUploadService.uploadFile(file);
-                post.setImageUrl(url);
+                post.setImageUrl(fileUploadService.uploadFile(imageFile));
             } catch (IOException e) {
                 throw new BadRequestException("Image upload failed: " + e.getMessage());
+            }
+        }
+
+        // 2. Xử lý Video
+        if (videoFile != null && !videoFile.isEmpty()) {
+            try {
+                post.setVideoUrl(fileUploadService.uploadFile(videoFile));
+            } catch (IOException e) {
+                throw new BadRequestException("Video upload failed: " + e.getMessage());
             }
         }
         
@@ -86,7 +94,7 @@ public class ForumService {
 
     // 10.4 Update Post
     @Transactional
-    public ForumDTO.PostResponse updatePost(String userId, String postId, String content, MultipartFile file) {
+    public ForumDTO.PostResponse updatePost(String userId, String postId, String content, MultipartFile imageFile, MultipartFile videoFile) {
         Post post = postRepository.findById(postId)
                 .orElseThrow(() -> new ResourceNotFoundException("Post not found"));
         
@@ -96,12 +104,20 @@ public class ForumService {
 
         post.setContent(content);
         
-        if (file != null && !file.isEmpty()) {
+        if (imageFile != null && !imageFile.isEmpty()) {
             try {
-                String url = fileUploadService.uploadFile(file);
-                post.setImageUrl(url);
+                post.setImageUrl(fileUploadService.uploadFile(imageFile));
             } catch (IOException e) {
-                throw new BadRequestException("Image upload failed during update: " + e.getMessage());
+                throw new BadRequestException("Image upload failed: " + e.getMessage());
+            }
+        }
+
+        // 2. Xử lý Video
+        if (videoFile != null && !videoFile.isEmpty()) {
+            try {
+                post.setVideoUrl(fileUploadService.uploadFile(videoFile));
+            } catch (IOException e) {
+                throw new BadRequestException("Video upload failed: " + e.getMessage());
             }
         }
 
@@ -185,12 +201,20 @@ public class ForumService {
         comment.setCreatedAt(LocalDateTime.now()); // Nếu entity không tự gen
 
         // 3. XỬ LÝ ẢNH (Nếu có upload)
-        if (request.getFile() != null && !request.getFile().isEmpty()) {
+        if (request.getImageFile() != null && !request.getImageFile().isEmpty()) {
             try {
-                String imageUrl = fileUploadService.uploadFile(request.getFile());
-                comment.setImageUrl(imageUrl);
+                comment.setImageUrl(fileUploadService.uploadFile(request.getImageFile()));
             } catch (Exception e) {
                 throw new RuntimeException("Lỗi upload ảnh comment: " + e.getMessage());
+            }
+        }
+
+        // 2. XỬ LÝ VIDEO
+        if (request.getVideoFile() != null && !request.getVideoFile().isEmpty()) {
+            try {
+                comment.setVideoUrl(fileUploadService.uploadFile(request.getVideoFile()));
+            } catch (Exception e) {
+                throw new RuntimeException("Lỗi upload video comment: " + e.getMessage());
             }
         }
 
@@ -214,13 +238,20 @@ public class ForumService {
         if (request.getContent() != null) {
             comment.setContent(request.getContent());
         }
-        MultipartFile file = request.getFile();
-        if (file != null && !file.isEmpty()) {
+       if (request.getImageFile() != null && !request.getImageFile().isEmpty()) {
             try {
-                String newImageUrl = fileUploadService.uploadFile(file);
-                comment.setImageUrl(newImageUrl); 
+                comment.setImageUrl(fileUploadService.uploadFile(request.getImageFile()));
             } catch (Exception e) {
                 throw new RuntimeException("Lỗi upload ảnh comment: " + e.getMessage());
+            }
+        }
+
+        // 2. XỬ LÝ VIDEO
+        if (request.getVideoFile() != null && !request.getVideoFile().isEmpty()) {
+            try {
+                comment.setVideoUrl(fileUploadService.uploadFile(request.getVideoFile()));
+            } catch (Exception e) {
+                throw new RuntimeException("Lỗi upload video comment: " + e.getMessage());
             }
         }
 
