@@ -21,9 +21,6 @@ public class ChallengeReminderScheduler {
     private final UserChallengeRepository userChallengeRepository;
     private final NotificationService notificationService;
 
-    /**
-     * Job buổi sáng 7:00 - nhắc nhở thử thách đang diễn ra cho từng user.
-     */
     @Scheduled(cron = "0 0 7 * * *", zone = "Asia/Ho_Chi_Minh")
     @Transactional
     public void morningChallengeReminder() {
