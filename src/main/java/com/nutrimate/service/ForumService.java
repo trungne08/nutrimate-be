@@ -306,6 +306,7 @@ public class ForumService {
                 .authorRole(authorRole)
                 .content(post.getContent())
                 .imageUrl(post.getImageUrl())
+                .videoUrl(post.getVideoUrl())
                 .createdAt(post.getCreatedAt())
                 .likeCount(post.getLikeCount())
                 .commentCount(post.getCommentCount())
@@ -334,6 +335,7 @@ public class ForumService {
                 .authorRole(authorRole)
                 .content(comment.getContent())
                 .imageUrl(comment.getImageUrl())
+                .videoUrl(comment.getVideoUrl())
                 .createdAt(comment.getCreatedAt())
                 .build();
     }
