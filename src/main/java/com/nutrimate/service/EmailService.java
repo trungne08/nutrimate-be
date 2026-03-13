@@ -28,7 +28,7 @@ public class EmailService {
      * Gửi email HTML nhắc nhở thử thách - chạy bất đồng bộ để không block scheduler.
      */
     @Async
-    public void sendChallengeReminderEmail(User user, List<String> challengeNames) {
+    public void sendChallengeReminderEmail(User user, List<String> challengeNames, boolean isMorning) {
         if (user == null || user.getEmail() == null) {
             return;
         }
@@ -43,13 +43,15 @@ public class EmailService {
             try {
                 helper.setFrom(fromEmail, "Nutrimate App");
             } catch (UnsupportedEncodingException e) {
-                // Nếu lỗi encode tên, fallback dùng fromEmail thuần
                 log.warn("Failed to set friendly from name, fallback to plain from. Reason: {}", e.getMessage());
                 helper.setFrom(fromEmail);
             }
 
             helper.setTo(user.getEmail());
-            helper.setSubject("Nutrimate - Nhắc nhở thử thách hôm nay");
+            String subject = isMorning
+                    ? "Nutrimate - Khởi động ngày mới với thử thách của bạn! 🌅"
+                    : "Nutrimate - Đừng quên điểm danh thử thách hôm nay nhé! 🌙";
+            helper.setSubject(subject);
 
             String displayName = user.getFullName() != null && !user.getFullName().isBlank()
                     ? user.getFullName()
@@ -89,7 +91,7 @@ public class EmailService {
                                                     Chào %s,
                                                 </p>
                                                 <p style="margin:0 0 12px 0;font-size:14px;color:#166534;line-height:1.6;">
-                                                    Hôm nay bạn có các thử thách đang chờ hoàn thành:
+                                                    %s
                                                 </p>
                                                 %s
                                                 <p style="margin:8px 0 20px 0;font-size:13px;color:#4b5563;line-height:1.6;">
@@ -124,7 +126,10 @@ public class EmailService {
                         </table>
                     </body>
                     </html>
-                    """.formatted(escapeHtml(displayName), listHtml.toString());
+                    """.formatted(escapeHtml(displayName),
+                    isMorning ? "Chào buổi sáng, hôm nay bạn có các thử thách đang chờ hoàn thành:"
+                            : "Sắp hết ngày rồi, bạn đã điểm danh các thử thách này chưa:",
+                    listHtml.toString());
 
             helper.setText(html, true);
 

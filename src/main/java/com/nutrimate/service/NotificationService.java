@@ -67,16 +67,22 @@ public class NotificationService {
      * Gửi nhắc nhở thử thách cho user: lưu Notification, bắn WebSocket và gửi Email HTML bất đồng bộ.
      */
     @Transactional
-    public void sendChallengeReminder(User user, List<String> challengeNames) {
+    public void sendChallengeReminder(User user, List<String> challengeNames, boolean isMorning) {
         if (user == null || user.getId() == null || user.getEmail() == null) {
             log.warn("Skip challenge reminder because user or email is null");
             return;
         }
 
         String joinedNames = String.join(", ", challengeNames);
-
-        String title = "Nutrimate nhắc nhở thử thách!";
-        String message = "Hôm nay bạn có các thử thách đang chờ hoàn thành: " + joinedNames;
+        String title;
+        String message;
+        if (isMorning) {
+            title = "Nutrimate - Chào ngày mới!";
+            message = "Chào buổi sáng! Hôm nay bạn có các thử thách cần hoàn thành: " + joinedNames + ". Hãy tràn đầy năng lượng nhé!";
+        } else {
+            title = "Nutrimate - Điểm danh nào!";
+            message = "Sắp hết ngày rồi! Bạn đã hoàn thành điểm danh cho các thử thách: " + joinedNames + " chưa? Vào app check-in ngay nhé!";
+        }
 
         // Lưu notification + bắn WebSocket
         Notification n = new Notification();
@@ -103,7 +109,7 @@ public class NotificationService {
 
         // Gửi email bất đồng bộ
         try {
-            emailService.sendChallengeReminderEmail(user, challengeNames);
+            emailService.sendChallengeReminderEmail(user, challengeNames, isMorning);
         } catch (Exception e) {
             // Không được để exception làm chết scheduler, chỉ log warning
             log.warn("Failed to schedule async email for challenge reminder to user {}: {}", user.getId(), e.getMessage());

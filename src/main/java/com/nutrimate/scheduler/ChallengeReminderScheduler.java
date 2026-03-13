@@ -24,7 +24,7 @@ public class ChallengeReminderScheduler {
     @Scheduled(cron = "0 0 7 * * *", zone = "Asia/Ho_Chi_Minh")
     @Transactional
     public void morningChallengeReminder() {
-        sendGroupedChallengeReminders();
+        sendGroupedChallengeReminders(true);
     }
 
     /**
@@ -33,22 +33,20 @@ public class ChallengeReminderScheduler {
     @Scheduled(cron = "0 0 19 * * *", zone = "Asia/Ho_Chi_Minh")
     @Transactional
     public void eveningChallengeReminder() {
-        sendGroupedChallengeReminders();
+        sendGroupedChallengeReminders(false);
     }
 
     /**
      * Logic gom nhóm: lấy tất cả thử thách IN_PROGRESS, group theo user và gửi 1 reminder cho mỗi user.
      */
-    private void sendGroupedChallengeReminders() {
-        // Lấy tất cả thử thách đang IN_PROGRESS
+    private void sendGroupedChallengeReminders(boolean isMorning) {
         List<UserChallenge> active = userChallengeRepository.findByStatus(UserChallenge.ChallengeStatus.IN_PROGRESS);
 
         if (active.isEmpty()) {
-            log.debug("ChallengeReminderScheduler: no active challenges to remind.");
+            log.info("ChallengeReminderScheduler: no active challenges to remind.");
             return;
         }
 
-        // Group by User: một user nhận đúng 1 notification với danh sách challenge
         Map<com.nutrimate.entity.User, List<UserChallenge>> groupedByUser = active.stream()
                 .filter(uc -> uc.getUser() != null && uc.getUser().getId() != null)
                 .collect(Collectors.groupingBy(UserChallenge::getUser));
@@ -63,9 +61,9 @@ public class ChallengeReminderScheduler {
                 return;
             }
 
-            notificationService.sendChallengeReminder(user, challengeNames);
-            log.debug("ChallengeReminderScheduler: sent reminder to user {} for challenges: {}",
-                    user.getId(), String.join(", ", challengeNames));
+            notificationService.sendChallengeReminder(user, challengeNames, isMorning);
+            log.info("ChallengeReminderScheduler: sent {} reminder to user {} for challenges: {}",
+                    isMorning ? "morning" : "evening", user.getId(), String.join(", ", challengeNames));
         });
     }
 }
