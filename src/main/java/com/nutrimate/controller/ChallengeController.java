@@ -1,6 +1,7 @@
 package com.nutrimate.controller;
 
 import com.nutrimate.dto.ChallengeDTO;
+import com.nutrimate.dto.CheckInHistoryResponse;
 import com.nutrimate.dto.UserChallengeDTO;
 import com.nutrimate.entity.Challenge;
 import com.nutrimate.entity.User;
@@ -114,7 +115,7 @@ public class ChallengeController {
     }
 
     @GetMapping("/{challengeId}/history")
-    public ResponseEntity<List<LocalDate>> getHistory(
+    public ResponseEntity<List<CheckInHistoryResponse>> getHistory(
             @PathVariable String challengeId,
             Authentication authentication) {
         String userId = getCurrentUserId(authentication);

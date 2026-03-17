@@ -1,6 +1,7 @@
 package com.nutrimate.service;
 
 import com.nutrimate.dto.ChallengeDTO;
+import com.nutrimate.dto.CheckInHistoryResponse;
 import com.nutrimate.entity.*;
 import com.nutrimate.exception.ResourceNotFoundException;
 import com.nutrimate.exception.BadRequestException;
@@ -10,6 +11,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.io.IOException;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -142,12 +144,13 @@ public class ChallengeService {
 
         if (uc.getDaysCompleted() < totalDays) {
             uc.setDaysCompleted(uc.getDaysCompleted() + 1);
-            uc.setLastCheckInDate(today); // Sử dụng biến today đã khai báo ở trên
+            uc.setLastCheckInDate(today); 
             
             // Lưu log điểm danh chi tiết
             CheckInLog log = new CheckInLog();
             log.setUserChallenge(uc);
-            log.setCheckinDate(today); // Đồng bộ sử dụng biến today
+            log.setCheckinDate(today);
+            log.setCreatedAt(LocalDateTime.now());
             checkInLogRepository.save(log);
         }
 
@@ -196,13 +199,16 @@ public class ChallengeService {
         }).collect(Collectors.toList());
     }
 
-    public List<LocalDate> getCheckInHistory(String userId, String challengeId) {
+    public List<CheckInHistoryResponse> getCheckInHistory(String userId, String challengeId) {
         UserChallenge uc = userChallengeRepository.findByUserIdAndChallengeId(userId, challengeId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy dữ liệu thử thách"));
 
         return checkInLogRepository.findByUserChallengeIdOrderByCheckinDateDesc(uc.getId())
                 .stream()
-                .map(CheckInLog::getCheckinDate)
+                .map(log -> new CheckInHistoryResponse(
+                        log.getCreatedAt(),
+                        true
+                ))
                 .collect(Collectors.toList());
     }
 }
