@@ -23,6 +23,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/system-feedbacks")
@@ -91,24 +92,30 @@ public class SystemFeedbackController {
         Double avgRating = systemFeedbackRepository.getAverageSystemRating();
 
         Map<String, Object> response = new HashMap<>();
-        // Định hình lại data trả về cho Frontend dễ đọc
+        
+        // --- ĐÃ FIX: Dùng HashMap thay cho Map.of để nhận null an toàn + gom Stream thành List ---
         response.put("feedbacks", feedbackPage.getContent().stream().map(fb -> {
             var user = fb.getUser();
+            
             String userName = (user != null && user.getFullName() != null)
                     ? user.getFullName()
-                    : "Người dùng đã xóa";
+                    : "Khách ẩn danh";
+                    
             String userAvatar = (user != null && user.getAvatarUrl() != null)
                     ? user.getAvatarUrl()
-                    : null;
-            return Map.of(
-                    "id", fb.getId(),
-                    "userName", userName,
-                    "userAvatar", userAvatar,
-                    "rating", fb.getRating(),
-                    "content", fb.getContent() != null ? fb.getContent() : "",
-                    "createdAt", fb.getCreatedAt()
-            );
-        }));
+                    : null; // Cứ gửi null qua Frontend xử lý
+
+            Map<String, Object> feedbackData = new HashMap<>();
+            feedbackData.put("id", fb.getId());
+            feedbackData.put("userName", userName);
+            feedbackData.put("userAvatar", userAvatar);
+            feedbackData.put("rating", fb.getRating());
+            feedbackData.put("content", fb.getContent() != null ? fb.getContent() : "");
+            feedbackData.put("createdAt", fb.getCreatedAt());
+
+            return feedbackData;
+        }).collect(Collectors.toList())); // 👈 Chốt chặn không cho Jackson vấp ngã
+
         response.put("currentPage", feedbackPage.getNumber());
         response.put("totalItems", feedbackPage.getTotalElements());
         response.put("totalPages", feedbackPage.getTotalPages());
