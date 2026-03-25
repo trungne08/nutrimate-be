@@ -1,6 +1,7 @@
 package com.nutrimate.controller;
 
 import com.nutrimate.dto.ChallengeDTO;
+import com.nutrimate.dto.CheckInHistoryResponse;
 import com.nutrimate.dto.UserChallengeDTO;
 import com.nutrimate.entity.Challenge;
 import com.nutrimate.entity.User;
@@ -23,6 +24,7 @@ import org.springframework.http.MediaType;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
 import java.util.Map;
+import java.time.LocalDate;
 import java.util.List;
 
 @RestController
@@ -35,17 +37,22 @@ public class ChallengeController {
     private final UserRepository userRepository;
 
     private String getCurrentUserId(Authentication authentication) {
-        if (authentication == null || !authentication.isAuthenticated()) throw new BadRequestException("Vui lòng đăng nhập");
+        if (authentication == null || !authentication.isAuthenticated())
+            throw new BadRequestException("Vui lòng đăng nhập");
         String cognitoId = null;
         Object principal = authentication.getPrincipal();
-        if (principal instanceof Jwt) cognitoId = ((Jwt) principal).getClaimAsString("sub");
-        else if (principal instanceof OidcUser) cognitoId = ((OidcUser) principal).getSubject();
+        if (principal instanceof Jwt)
+            cognitoId = ((Jwt) principal).getClaimAsString("sub");
+        else if (principal instanceof OidcUser)
+            cognitoId = ((OidcUser) principal).getSubject();
         else if (principal instanceof OAuth2User) {
             OAuth2User oauth2User = (OAuth2User) principal;
             cognitoId = oauth2User.getAttribute("sub");
-            if (cognitoId == null) cognitoId = oauth2User.getName();
+            if (cognitoId == null)
+                cognitoId = oauth2User.getName();
         }
-        if (cognitoId == null || cognitoId.isBlank()) throw new BadRequestException("Token không hợp lệ");
+        if (cognitoId == null || cognitoId.isBlank())
+            throw new BadRequestException("Token không hợp lệ");
         return userRepository.findByCognitoId(cognitoId).map(User::getId)
                 .orElseThrow(() -> new ResourceNotFoundException("User không tồn tại"));
     }
@@ -59,20 +66,18 @@ public class ChallengeController {
     // --- ADMIN ---
     @Operation(summary = "[Admin] Create new challenge (multipart/form-data: title, description, durationDays, level, imageFile)")
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @PreAuthorize("hasRole('ADMIN')") 
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Challenge> createChallenge(
-            @ModelAttribute @Valid ChallengeDTO.CreateRequest request
-    ) {
+            @ModelAttribute @Valid ChallengeDTO.CreateRequest request) {
         return ResponseEntity.ok(challengeService.createChallenge(request));
     }
 
     @Operation(summary = "[Admin] Update challenge (multipart/form-data: title, description, durationDays, level, imageFile)")
     @PutMapping(value = "/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @PreAuthorize("hasRole('ADMIN')") 
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Challenge> updateChallenge(
             @PathVariable String id,
-            @ModelAttribute ChallengeDTO.CreateRequest request 
-    ) {
+            @ModelAttribute ChallengeDTO.CreateRequest request) {
         return ResponseEntity.ok(challengeService.updateChallenge(id, request));
     }
 
@@ -107,5 +112,13 @@ public class ChallengeController {
         String userId = getCurrentUserId(auth);
         challengeService.checkInChallenge(userId, id);
         return ResponseEntity.ok(Map.of("message", "Registration successful! Keep going!"));
+    }
+
+    @GetMapping("/{challengeId}/history")
+    public ResponseEntity<List<CheckInHistoryResponse>> getHistory(
+            @PathVariable String challengeId,
+            Authentication authentication) {
+        String userId = getCurrentUserId(authentication);
+        return ResponseEntity.ok(challengeService.getCheckInHistory(userId, challengeId));
     }
 }

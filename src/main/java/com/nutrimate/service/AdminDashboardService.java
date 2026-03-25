@@ -9,6 +9,7 @@ import com.nutrimate.repository.BookingRepository;
 import com.nutrimate.repository.UserRepository;
 import com.nutrimate.repository.UserSubscriptionRepository;
 import com.nutrimate.repository.FeedbackRepository;
+import com.nutrimate.repository.SystemFeedbackRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -28,6 +29,7 @@ public class AdminDashboardService {
     private final BookingRepository bookingRepository;
     private final FeedbackRepository feedbackRepository; 
     private final UserSubscriptionRepository userSubscriptionRepository;
+    private final SystemFeedbackRepository systemFeedbackRepository;
 
     public DashboardResponseDTO getDashboardStats() {
         // 1. Tính tổng doanh thu từ 2 nguồn (Giữ nguyên như cũ)
@@ -50,8 +52,8 @@ public class AdminDashboardService {
         
         return DashboardResponseDTO.builder()
                 .totalUsers(userRepository.count())
-                .totalTransactions(totalTransactions) // Chỉ đếm giao dịch ra tiền!
-                .totalFeedbacks(feedbackRepository.count()) 
+                .totalTransactions(totalTransactions)
+                .totalFeedbacks(systemFeedbackRepository.count())
                 .totalRevenue(totalRevenue)
                 .build();
     }
