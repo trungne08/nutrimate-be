@@ -15,6 +15,7 @@ import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
+import java.util.Locale;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Map;
@@ -53,14 +54,26 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
         System.out.println(">>> 🆔 Cognito ID: " + cognitoId);
         System.out.println(">>> 📛 Full Name: " + fullName);
         
-        // Kiểm tra user trong database
-        Optional<User> existingUser = userRepository.findByEmail(email);
+        if (email != null) {
+            email = email.trim().toLowerCase(Locale.ROOT);
+        }
+        if (cognitoId != null) {
+            cognitoId = cognitoId.trim();
+        }
+
+        // Kiểm tra user trong database (tuyệt đối không throw khi user cũ đã tồn tại)
+        Optional<User> existingUser = (email == null || email.isBlank())
+                ? Optional.empty()
+                : userRepository.findByEmail(email);
         
         if (existingUser.isPresent()) {
             // User đã tồn tại -> Cập nhật thông tin từ Cognito
             System.out.println(">>> 🔄 User đã tồn tại, đang cập nhật...");
             User user = existingUser.get();
-            user.setCognitoId(cognitoId);
+            if (cognitoId != null && !cognitoId.isBlank()) {
+                // Cập nhật đè cognito_id (sub mới) để khớp với Cognito User Pool mới.
+                user.setCognitoId(cognitoId);
+            }
             if (fullName != null && !fullName.isEmpty()) {
                 user.setFullName(fullName);
             }
@@ -73,12 +86,23 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
             if (avatarUrl != null && !avatarUrl.isEmpty()) {
                 user.setAvatarUrl(avatarUrl);
             }
-            userRepository.save(user);
+            try {
+                userRepository.save(user);
+            } catch (Exception e) {
+                // Không để lỗi DB ngăn đăng nhập thành công
+                System.err.println(">>> ❌ LỖI KHI UPDATE cognitoId cho user tồn tại: " + e.getMessage());
+            }
             System.out.println(">>> ✅ Đã cập nhật User: " + email);
         } else {
             // User chưa tồn tại -> Tạo mới với đầy đủ thông tin từ Cognito
             System.out.println(">>> 🆕 User mới, đang tạo...");
             User newUser = new User();
+            // Nếu email/cognitoId không có, không tạo user (tránh tạo dữ liệu lỗi)
+            if (email == null || email.isBlank() || cognitoId == null || cognitoId.isBlank()) {
+                System.err.println(">>> ❌ Không thể tạo user mới vì thiếu email hoặc cognitoId. email=" + email + ", sub=" + cognitoId);
+                return oauth2User;
+            }
+
             newUser.setEmail(email);
             newUser.setCognitoId(cognitoId);
             // Xử lý Full Name (có thể null trong DB, nhưng nên có giá trị)
